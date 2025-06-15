@@ -224,7 +224,7 @@ impl<'a> Shuttler<'a> {
                             tracing::error!("websocket error: {:?}", e);
                         },
                         None => {
-                            tracing::error!("websocket connection closed, reconnecting...");
+                            tracing::error!("empty message, reconnecting...");
                             tokio::time::sleep(Duration::from_secs(5)).await;
                             if client.reconnect().await.is_err() {
                                 tracing::error!("Failed to reconnect to websocket");

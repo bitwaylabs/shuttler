@@ -60,7 +60,7 @@ impl Candidate {
         params.allowed_dkg_participants.iter().for_each(|v| {
             if let Ok(pk ) = from_base64(&v.consensus_pubkey) {
                 let id = pubkey_to_identifier(&pk);
-                debug!("added {} {:?} in white list", v.moniker, id);
+                debug!("added {} {} in white list", v.consensus_pubkey, v.moniker);
                 mem_store::add_moniker(&id, v.moniker.clone());
                 self.peers.push(identifier_to_peer_id(&id ));
                 self.identifiers.push( id );
