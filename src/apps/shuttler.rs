@@ -206,11 +206,11 @@ impl<'a> Shuttler<'a> {
 
         loop {
             select! {
-                recv = client.receive_message() => {
+                Some(recv) = client.receive_message() => {
                     match recv {
-                        Some(Ok(msg)) => {
+                        Ok(msg) => {
                             if self.handle_block_event(&mut context, msg) {
-                                tracing::error!("websocket connection closed, reconnecting...");
+                                tracing::error!("websocket connection closed, will reconnect in 5s.");
                                 tokio::time::sleep(Duration::from_secs(5)).await;
                                 if client.reconnect().await.is_err() {
                                     tracing::error!("Failed to reconnect to websocket");
@@ -220,11 +220,8 @@ impl<'a> Shuttler<'a> {
                                 }
                             };
                         },
-                        Some(Err(e)) => {
-                            tracing::error!("websocket error: {:?}", e);
-                        },
-                        None => {
-                            tracing::error!("empty message, reconnecting...");
+                        Err(e) => {
+                            tracing::error!("websocket error: {:?}, will reconnect in 5s", e);
                             tokio::time::sleep(Duration::from_secs(5)).await;
                             if client.reconnect().await.is_err() {
                                 tracing::error!("Failed to reconnect to websocket");
@@ -232,7 +229,7 @@ impl<'a> Shuttler<'a> {
                             } else {
                                 tracing::info!("Reconnected to websocket");
                             }
-                        },
+                        }
                     }
                 }
                 // recv = sidechain_event_stream.next() => {
