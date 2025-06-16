@@ -33,7 +33,14 @@ impl<K, V> SledStore<K, V> where K: AsRef<[u8]>, V: Serialize + for<'a> Deserial
 
 impl<K, V> Store<K, V> for SledStore<K, V> where K: AsRef<[u8]>, V: Serialize + for<'a> Deserialize<'a> {
     fn save(&self, key: &K, value: &V) -> bool {
-        let value = serde_json::to_vec(value).unwrap();
+        // tracing::debug!("Saving key: {:?}", String::from_utf8_lossy(key.as_ref()));
+        let value = match serde_json::to_vec(value) {
+            Ok(v) => v,
+            Err(e) => {
+                tracing::error!("Failed to serialize value: {:?}", e);
+                return false;
+            }
+        };
         self.inner
             .insert(key, value)
             .is_ok()

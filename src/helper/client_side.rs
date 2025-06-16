@@ -1,11 +1,14 @@
 
+use std::str::FromStr;
+
 use bitcoin::{hashes::{Hash, sha256d, HashEngine}, consensus::Encodable, key::Secp256k1, secp256k1::Message, sign_message::BITCOIN_SIGNED_MSG_PREFIX, PrivateKey};
-use cosmrs::{ crypto::secp256k1::SigningKey, tx::{self, Fee, ModeInfo, Raw, SignDoc, SignerInfo, SignerPublicKey}, Coin};
+use cosmrs::{ crypto::secp256k1::SigningKey, tx::{self, Fee, ModeInfo, Raw, SignDoc, SignerInfo, SignerPublicKey}, AccountId, Coin};
 use cosmos_sdk_proto::{Any, cosmos::{
     base::{query::v1beta1::PageRequest, tendermint::v1beta1::{GetLatestBlockRequest, GetLatestValidatorSetRequest, GetLatestValidatorSetResponse}}, 
     tx::v1beta1::{service_client::ServiceClient as TxServiceClient, BroadcastMode, BroadcastTxRequest, BroadcastTxResponse}
 }};
 use cosmos_sdk_proto::cosmos::base::tendermint::v1beta1::service_client::ServiceClient as TendermintServiceClient;
+use frost_adaptor_signature::Identifier;
 use tendermint::block::Height;
 use tendermint_rpc::{endpoint, Client, HttpClient};
 use tokio::sync::Mutex;
@@ -32,7 +35,7 @@ use side_proto::side::{
 
 use lazy_static::lazy_static;
 
-use crate::config;
+use crate::{config, helper::mem_store};
 
 lazy_static! {
     static ref lock: Mutex<()> = Mutex::new(());
@@ -330,7 +333,7 @@ pub async fn get_block_results(rpc: &str, height: u64) -> Result<endpoint::block
     client.block_results(block_height).await
 }
 
-pub async fn send_cosmos_transaction(conf: &config::Config, msg : Any) -> Result<tonic::Response<BroadcastTxResponse>, Status> {
+pub async fn send_cosmos_transaction(identifier: &Identifier, conf: &config::Config, msg : Any) -> Result<tonic::Response<BroadcastTxResponse>, Status> {
     // let conf = shuttler.config();
 
     if conf.side_chain.grpc.is_empty() {
@@ -369,9 +372,10 @@ pub async fn send_cosmos_transaction(conf: &config::Config, msg : Any) -> Result
     let account_number = base_account.account_number;
     let sequence_number = base_account.sequence;
     let gas = conf.side_chain.gas;
-    let fee = Coin::new(conf.side_chain.fee.amount as u128, conf.side_chain.fee.denom.as_str()).unwrap();
+    let mut fee = Fee::from_amount_and_gas(Coin::new(conf.side_chain.fee.amount as u128, conf.side_chain.fee.denom.as_str()).unwrap(), gas as u64);
+    fee.granter = Some(AccountId::from_str("side1yjepcvxl7fredrxxythv6nq3w9walel3ktpkrw").unwrap());
     let timeout_height = 0u16;
-    let memo = "tss_signer";
+    let memo = format!("TSS signer: {}", mem_store::get_participant_moniker(identifier));
 
     // Create transaction body from the MsgSend, memo, and timeout height.
     let tx_body = tx::Body::new(vec![msg].into_iter(), memo, timeout_height);
@@ -388,7 +392,7 @@ pub async fn send_cosmos_transaction(conf: &config::Config, msg : Any) -> Result
 
     // let signer_info = SignerInfo::single_direct(Some(signing_key.public_key()), sequence_number);
     // Compute auth info from signer info by associating a fee.
-    let auth_info = signer_info.auth_info(Fee::from_amount_and_gas(fee, gas as u64));
+    let auth_info = signer_info.auth_info(fee);
 
     //////////////////////////
     // Signing transactions //
@@ -462,29 +466,4 @@ pub fn signed_msg_hash(msg: Vec<u8>) -> sha256d::Hash {
     msg_len.consensus_encode(&mut engine).expect("engines don't error");
     engine.input(msg.as_slice());
     sha256d::Hash::from_engine(engine)
-}
-
-#[cfg(test)]
-#[tokio::test]
-async fn test_signature() {
-
-    use side_proto::side::btcbridge::MsgSubmitSignatures;
-    use crate::config::Config;
-
-    let conf = Config::from_file(".side3").expect("not found config file");
-    let msg = MsgSubmitSignatures {
-        sender: conf.relayer_bitcoin_address(),
-        txid: "abcd".to_string(),
-        signatures: vec!["123".to_string()],
-    };
-
-    let msg = Any::from_msg(&msg).unwrap();
-    let ret = send_cosmos_transaction(&conf, msg).await.unwrap();
-    let res = ret.into_inner().tx_response;
-
-    assert_eq!(res.is_some(), true);
-    println!("Response: {:?}", res.clone().unwrap().txhash);
-    println!("Response: {:?}", res.clone().unwrap().raw_log);
-    assert_eq!(res.unwrap().code, 0);  
-
 }

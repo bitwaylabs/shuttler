@@ -165,10 +165,11 @@ impl<'a> Shuttler<'a> {
         // Tx Sender for Tx Quene
         let (tx_sender, tx_receiver) = std::sync::mpsc::channel::<Any>();
         let conf2 = conf.clone();
+        let identifier2 = identifier.clone();
         spawn(async move {
             while let Ok(message) = tx_receiver.recv() {
-                println!("Received: {:?}", message);
-                match send_cosmos_transaction(&conf2, message).await {
+                // println!("Received: {:?}", message);
+                match send_cosmos_transaction(&identifier2, &conf2, message).await {
                     Ok(resp) => {
                         if let Some(inner) = resp.into_inner().tx_response {
                             debug!("Submited {}, {}, {}", inner.txhash, inner.code, inner.raw_log)
@@ -178,7 +179,6 @@ impl<'a> Shuttler<'a> {
                 };
             }
         });
-
 
         // Common Setting: Context and Heart Beat
         let mut context = Context::new(swarm, tx_sender, identifier, node_key, conf.clone()); 
@@ -206,18 +206,31 @@ impl<'a> Shuttler<'a> {
 
         loop {
             select! {
-                Some(msg) = client.receive_message() => {
-                    // tracing::info!("msg {:?}", msg);
-                    if self.handle_block_event(&mut context, msg) {
-                        tracing::error!("websocket connection closed, reconnecting...");
-                        tokio::time::sleep(Duration::from_secs(5)).await;
-                        if client.reconnect().await.is_err() {
-                            tracing::error!("Failed to reconnect to websocket");
-                            break;
-                        } else {
-                            tracing::info!("Reconnected to websocket");
+                Some(recv) = client.receive_message() => {
+                    match recv {
+                        Ok(msg) => {
+                            if self.handle_block_event(&mut context, msg) {
+                                tracing::error!("websocket connection closed, will reconnect in 5s.");
+                                tokio::time::sleep(Duration::from_secs(5)).await;
+                                if client.reconnect().await.is_err() {
+                                    tracing::error!("Failed to reconnect to websocket");
+                                    break;
+                                } else {
+                                    tracing::info!("Reconnected to websocket");
+                                }
+                            };
+                        },
+                        Err(e) => {
+                            tracing::error!("websocket error: {:?}, will reconnect in 5s", e);
+                            tokio::time::sleep(Duration::from_secs(5)).await;
+                            if client.reconnect().await.is_err() {
+                                tracing::error!("Failed to reconnect to websocket");
+                                break;
+                            } else {
+                                tracing::info!("Reconnected to websocket");
+                            }
                         }
-                    };
+                    }
                 }
                 // recv = sidechain_event_stream.next() => {
                 //     match recv {
@@ -248,7 +261,7 @@ impl<'a> Shuttler<'a> {
                         // info!(" @@(Received) Discovered new peer: {peer_id} with info: {connection_id} {:?}", info);
                         info.listen_addrs.iter().for_each(|addr| {
                             if !addr.to_string().starts_with("/ip4/127.0.0.1") {
-                                tracing::debug!("Discovered: {addr}/p2p/{peer_id}");
+                                // tracing::debug!("Discovered: {addr}/p2p/{peer_id}");
                                 context.swarm
                                     .behaviour_mut()
                                     .kad
@@ -276,7 +289,10 @@ impl<'a> Shuttler<'a> {
                         } else {
                             let _ = context.swarm.disconnect_peer_id(peer_id);
                         }
-                        info!("Connected peers {:?}", context.swarm.connected_peers().collect::<Vec<_>>());
+                        
+                        info!("Connected to {}", peer_id)
+
+                        // info!("Connected peers {:?}", context.swarm.connected_peers().map(|i|).collect::<Vec<_>>());
                     },
                     SwarmEvent::ConnectionClosed { peer_id, cause, .. } => {
                         info!("Disconnected {peer_id}: {:?}", cause);
@@ -336,7 +352,7 @@ impl<'a> Shuttler<'a> {
             },
             tokio_tungstenite::tungstenite::Message::Close(_close) => {
                 tracing::error!("connection closed");
-                return false
+                return true
             },
             _ => return false
         };
@@ -350,7 +366,7 @@ impl<'a> Shuttler<'a> {
             tendermint_rpc::event::v0_38::DeEventData::NewBlock { block, result_finalize_block , ..} => {
                 if let Some(b) = block { 
                     let height = b.header.height.value();
-                    debug!("Received New block: #{:?}, {:?}", height, mem_store::alive_participants_monikers());
+                    debug!("Block: #{:?}, offline: {:?}", height, mem_store::offline_participants_monikers());
                     sending_heart_beat(ctx, height);
                 }
                 if let Some(finalize_block) = result_finalize_block {
@@ -420,8 +436,7 @@ impl<'a> Shuttler<'a> {
                         tasks.push(task);
                     }
                 };
-            });
-            
+            });    
         }
         
         if let Some(lending) = self.apps.iter().find(|a| a.name() == APP_NAME_LENDING) {

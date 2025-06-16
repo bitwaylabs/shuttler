@@ -404,7 +404,7 @@ pub async fn send_deposit_tx(
     info!("submit deposit tx to side: {:?}", msg);
 
     let any_msg = Any::from_msg(&msg).unwrap();
-    send_cosmos_transaction(&relayer.config(), any_msg).await
+    send_cosmos_transaction(&relayer.identifier, &relayer.config(), any_msg).await
 }
 
 pub async fn handle_cet(relayer: &Relayer, loan_id: String, cet_type: String) {

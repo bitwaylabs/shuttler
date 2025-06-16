@@ -6,7 +6,7 @@ use ed25519_compact::x25519;
 use frost_adaptor_signature::keys::{KeyPackage, PublicKeyPackage};
 use libp2p::gossipsub::IdentTopic;
 use serde::de::DeserializeOwned;
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 use serde::{Deserialize, Serialize};
 
 use frost_adaptor_signature as frost;
@@ -98,7 +98,7 @@ impl<H> ParticipantRefresher<H> where H: RefreshAdaptor {
         let signature = ctx.node_key.sign(raw, None).to_vec();
         
         let msg = RefreshMessage{ sender: ctx.identifier, payload, signature };
-        debug!("Broadcasting: {:?}", msg);
+        // debug!("Broadcasting: {:?}", msg);
         let bytes = serde_json::to_vec(&msg).expect("Failed to serialize DKG package");
         publish_topic_message(ctx, IdentTopic::new(&self.name), bytes);
     }
@@ -123,7 +123,7 @@ impl<H> ParticipantRefresher<H> where H: RefreshAdaptor {
                 refresh_input.new_participants.len() as u16,
                 refresh_input.threshold,
             ) {
-                debug!("round1_secret_package: {:?}", task.id );
+                debug!("round1_secret_package: {:?} {}", task.id, _k );
                 packages.push(round1_package);
                 secrets.push(secret_packet);
             } else {
@@ -136,16 +136,19 @@ impl<H> ParticipantRefresher<H> where H: RefreshAdaptor {
         }
 
         mem_store::set_dkg_round1_secret_packet(&task.id, secrets);
+        // ctx.sec_round1.save(&task.id, &secrets);
+
         let data = Data{task_id: task.id.clone(), sender: ctx.identifier.clone(), data: packages};
         self.received_round1_packages(ctx, data.clone());
         self.broadcast_dkg_packages(ctx, RefreshPayload::Round1(data));
         
     }
 
-    fn generate_round2_packages(&self, ctx: &mut Context, task: &Task, round1_packages: BTreeMap<Identifier, round1::Package>) -> Result<(), DKGError> {
+    fn generate_round2_packages(&self, ctx: &mut Context, task: &Task, round1_packages: BTreeMap<Identifier, Vec<round1::Package>>) -> Result<(), DKGError> {
 
         let task_id = task.id.clone();
 
+        // let secret_packages = match ctx.sec_round1.get(&task_id) {
         let secret_packages = match mem_store::get_dkg_round1_secret_packet(&task_id) {
             Some(secret_packet) => secret_packet,
             None => {
@@ -158,6 +161,11 @@ impl<H> ParticipantRefresher<H> where H: RefreshAdaptor {
             _ => return Err(DKGError(format!("Error Input: {}", task_id))),
         };
 
+        // make sure that all new participants have be added.
+        if !refresh_input.new_participants.contains(&ctx.identifier) {
+            return Err(DKGError(format!("Not a new participant: {:?}", ctx.identifier)));
+        }
+
         if refresh_input.new_participants.len() as u16 != round1_packages.len() as u16 {
             return Err(DKGError(format!("Have not received enough packages: {}", task_id)));
         }
@@ -167,8 +175,26 @@ impl<H> ParticipantRefresher<H> where H: RefreshAdaptor {
 
         let mut secrets = vec![];
         let mut packages = vec![];
-        for secret_package in secret_packages {
-            match frost::keys::refresh::refresh_dkg_part2(secret_package, &cloned) {
+        let mut converted_round1_packages: Vec<BTreeMap<Identifier, round1::Package>> = vec![];
+
+        cloned.iter().for_each(|(k, v)| {
+
+            for (i, package) in v.iter().enumerate() {
+                match converted_round1_packages.get_mut(i) {
+                    Some(p) => {
+                        p.insert(k.clone(), package.clone());
+                    },
+                    None => {
+                        let mut m = BTreeMap::new();
+                        m.insert(k.clone(), package.clone());
+                        converted_round1_packages.push(m);
+                    },
+                };
+            }
+        });
+
+        for (secret_package, round1_packages) in secret_packages.iter().zip(converted_round1_packages.iter()) {
+            match frost::keys::refresh::refresh_dkg_part2(secret_package.clone(), round1_packages) {
                 Ok((round2_secret_package, round2_packages)) => {
     
                     secrets.push(round2_secret_package);
@@ -185,7 +211,6 @@ impl<H> ParticipantRefresher<H> where H: RefreshAdaptor {
             
                         output_packages.insert(receiver_identifier, packet);
                     };
-    
 
                     packages.push(output_packages);
                     // convert it to <sender, <receiver, Vec<u8>>
@@ -202,9 +227,8 @@ impl<H> ParticipantRefresher<H> where H: RefreshAdaptor {
             return Err(DKGError("No package generated".to_string()))
         }
 
-
         mem_store::set_dkg_round2_secret_packet(&task_id, secrets);
-        // ctx.db_round2.save(&task.id, &local);
+        // ctx.sec_round2.save(&task_id, &secrets);
     
         let data  = Data{task_id, sender: ctx.identifier.clone(), data: packages};
         self.received_round2_packages(ctx, data.clone());
@@ -249,12 +273,16 @@ impl<H> ParticipantRefresher<H> where H: RefreshAdaptor {
         let task_id = &packets.task_id;
         // store round 1 packets
         let mut local = ctx.db_round1.get(task_id).map_or(BTreeMap::new(), |v|v);
-        
+        if local.contains_key(&packets.sender) {
+            // already received this sender's round1 package
+            warn!("duplicated round1 package from {:?}: {}", packets.sender, task_id);
+            return;
+        }
         // merge packets with local
         local.insert(packets.sender, packets.data);
         ctx.db_round1.save(&task_id, &local);
 
-        debug!("Received round1 packets: {} {:?}", &task_id, local.keys());
+        debug!("Received round1 packets: {} {:?}", &task_id, local.keys().map(|k| mem_store::get_participant_moniker(k)).collect::<Vec<_>>());
 
         let mut task = match ctx.task_store.get(&task_id) {
             Some(t) => t,
@@ -271,16 +299,16 @@ impl<H> ParticipantRefresher<H> where H: RefreshAdaptor {
 
         if refresh_input.new_participants.len() == local.len() {
             
-            info!("Received round1 packets from all participants: {}", task_id);
-            let round1_packages = local.clone().iter().map(|(k, v)| (k.clone(), v[0].clone())).collect::<BTreeMap<_,_>>();
-            match self.generate_round2_packages(ctx,  &task, round1_packages) {
+            info!("#{} round1 completed:", task_id);
+            // let round1_packages = local.clone().iter().map(|(k, v)| { debug!("round1: {:?}", v); (k.clone(), v[0].clone()) }).collect::<BTreeMap<_,_>>();
+            match self.generate_round2_packages(ctx,  &task, local) {
                 Ok(_) => {
                     task.status = Status::Round2;
                     ctx.task_store.save(&task.id, &task);
                 }
                 Err(e) => {
                     task.status = Status::Complete;
-                    ctx.task_store.save(&task.id, &task);
+                    // ctx.task_store.save(&task.id, &task);
                     error!("Failed to generate round2 packages: {} - {:?}", task.id, e);
                 }
             }
@@ -304,10 +332,15 @@ impl<H> ParticipantRefresher<H> where H: RefreshAdaptor {
         }
 
         let mut received = ctx.db_round2.get(task_id).unwrap_or(BTreeMap::new()); 
+        if received.contains_key(&packets.sender) {
+            // already received this sender's round2 package
+            warn!("duplicated round2 package from {:?}: {}", packets.sender, task_id);
+            return;
+        }
         received.insert(packets.sender, round2_packages);
         ctx.db_round2.save(&task_id, &received);
 
-        debug!("Received round2 packets: {} {:?}", task_id, received.keys());
+        debug!("Received round2 packets: {} {:?}", task_id, received.keys().map(|k| mem_store::get_participant_moniker(k)).collect::<Vec<_>>());
 
         let mut task = match ctx.task_store.get(&task_id) {
             Some(t) => t,
@@ -332,8 +365,7 @@ impl<H> ParticipantRefresher<H> where H: RefreshAdaptor {
 
         if refresh_input.new_participants.len() == received.len() {
 
-
-            info!("Received round2 packets from all participants: {}", task.id);
+            info!("#{} round2 completed", task_id);
 
             // initialize a batch of empty BTreeMap.
             let mut batch = refresh_input.keys.iter().map(|i| (i.to_string(), BTreeMap::new()) ).collect::<Vec<_>>();
@@ -355,6 +387,7 @@ impl<H> ParticipantRefresher<H> where H: RefreshAdaptor {
 
             // frost does not need its own package to compute the threshold key
             round1_packages.remove(&ctx.identifier);
+            // let round2_secret_package = match ctx.sec_round2.get(task_id) {
             let round2_secret_package = match mem_store::get_dkg_round2_secret_packet(task_id) {
                 Some(secret_package) => secret_package,
                 None => {

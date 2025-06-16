@@ -99,7 +99,6 @@ impl<H> StandardSigner<H> where H: SignAdaptor{
             commitments.insert(index, input_commit.clone());
         });
 
-        println!("nonnce {:?}", nonces);
         // Save nonces to local storage.
         ctx.nonce_store.save(&task.id, &nonces);
 
@@ -130,7 +129,7 @@ impl<H> StandardSigner<H> where H: SignAdaptor{
 
     fn received_sign_message(&self, ctx: &mut Context, msg: SignMesage) {
 
-        tracing:: debug!("Received: {:?}", msg);
+        // tracing:: debug!("Received: {:?}", msg);
         // Ensure the message is not forged.
         match PublicKey::from_slice(&msg.sender.serialize()) {
             Ok(public_key) => {
@@ -236,6 +235,12 @@ impl<H> StandardSigner<H> where H: SignAdaptor{
 
                 if !keypair.pub_key.verifying_shares().contains_key(sender) {
                     error!("Sender {:?} not in keypair: {:?}", sender, input.key);
+                    return;
+                }
+            
+                if !keypair.pub_key.verifying_shares().contains_key(&ctx.identifier) {
+                    debug!("My identifier {:?} not in participants", ctx.identifier);
+                    ctx.clean_task_cache(task_id);
                     return;
                 }
 
@@ -362,6 +367,12 @@ impl<H> StandardSigner<H> where H: SignAdaptor{
                 }
             };
 
+            if !keypair.pub_key.verifying_shares().contains_key(&ctx.identifier) {
+                debug!("My identifier {:?} not in participants.", &ctx.identifier);
+                ctx.clean_task_cache(task_id);
+                return;
+            }
+
             if !keypair.pub_key.verifying_shares().contains_key(sender) {
                 error!("Sender {:?} not in keypair: {:?}", sender, input.key);
                 return;
@@ -433,7 +444,7 @@ impl<H> StandardSigner<H> where H: SignAdaptor{
         let signaure = ctx.node_key.sign(raw, None).to_vec();
         message.signature = signaure;
     
-        tracing::debug!("Broadcasting: {:?}", message);
+        tracing::debug!("Broadcasting: {:?}", message.task_id);
         let message = serde_json::to_vec(&message).expect("Failed to serialize Sign package");
         publish_topic_message(ctx, self.topic(), message);
     }

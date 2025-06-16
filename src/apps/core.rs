@@ -14,7 +14,7 @@ use crate::{
     helper::{
         encoding::to_base64,
         now,
-        store::{DefaultStore, MemStore, Store},
+        store::{DefaultStore, Store},
     }, protocols::refresh::RefreshInput,
 };
 
@@ -210,8 +210,12 @@ type SignatureShareStore =
 type SignerNonceStore = DefaultStore<String, BTreeMap<Index, round1::SigningNonces>>;
 
 pub type Round1Store =
-    MemStore<String, BTreeMap<Identifier, Vec<frost_adaptor_signature::keys::dkg::round1::Package>>>;
-pub type Round2Store = MemStore<String, BTreeMap<Identifier, Vec<Vec<u8>>>>;
+    DefaultStore<String, BTreeMap<Identifier, Vec<frost_adaptor_signature::keys::dkg::round1::Package>>>;
+pub type Round2Store = DefaultStore<String, BTreeMap<Identifier, Vec<Vec<u8>>>>;
+
+
+pub type Round1SecetStore = DefaultStore<String, Vec<frost_adaptor_signature::keys::dkg::round1::SecretPackage>>;
+pub type Round2SecetStore = DefaultStore<String, Vec<frost_adaptor_signature::keys::dkg::round2::SecretPackage>>;
 
 pub struct Context {
     pub swarm: Swarm<ShuttlerBehaviour>,
@@ -232,6 +236,8 @@ pub struct Context {
     // dkg stores
     pub db_round1: Round1Store,
     pub db_round2: Round2Store,
+    pub sec_round1: Round1SecetStore,
+    pub sec_round2: Round2SecetStore,
 }
 
 impl Context {
@@ -265,11 +271,22 @@ impl Context {
             commitment_store: CommitmentStore::new(conf.get_database_with_name("commitments")),
             signature_store: SignatureShareStore::new(conf.get_database_with_name("signature_shares")),
             general_store: DefaultStore::new(conf.get_database_with_name("general")),
+
+            db_round1: Round1Store::new(conf.get_database_with_name("round1")),
+            db_round2: Round2Store::new(conf.get_database_with_name("round2")),
+            sec_round1: Round1SecetStore::new(conf.get_database_with_name("sec_round1")),
+            sec_round2: Round2SecetStore::new(conf.get_database_with_name("sec_round2")),
+
             conf,
 
-            db_round1: Round1Store::new(),
-            db_round2: Round2Store::new(),
         }
+    }
+
+    pub fn clean_dkg_cache(&self, task_id: &String) {
+        self.db_round1.remove(task_id);
+        self.db_round2.remove(task_id);
+        self.sec_round1.remove(task_id);
+        self.sec_round2.remove(task_id);
     }
 
     pub fn clean_task_cache(&self, task_id: &String) {

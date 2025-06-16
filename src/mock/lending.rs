@@ -85,7 +85,7 @@ pub fn create_refresh_event(env: MockEnv, height: Height) -> SideEvent {
         let mut creation = BTreeMap::new();
         creation.insert("initiate_refreshing.id".to_owned(), vec![height.value().to_string()]);
         creation.insert("initiate_refreshing.dkg_id".to_owned(), vec![o.id.to_string()]);
-        creation.insert("initiate_refreshing.removed_participants".to_owned(), vec![env.participants[0].to_string()]); // remove the first one
+        creation.insert("initiate_refreshing.removed_participants".to_owned(), vec![env.participants.iter().nth(3).unwrap().to_string()]); // remove the first one
         creation.insert("initiate_refreshing.new_participants".to_owned(), vec![]); // add the last one
 
         SideEvent::BlockEvent(creation)

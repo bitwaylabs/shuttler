@@ -528,7 +528,7 @@ pub async fn send_withdraw_tx(
     info!("Submitting withdrawal tx: {:?}", msg);
 
     let any_msg = Any::from_msg(&msg).unwrap();
-    send_cosmos_transaction(relayer.config(), any_msg).await
+    send_cosmos_transaction(&relayer.identifier, relayer.config(), any_msg).await
 }
 
 pub async fn send_deposit_tx(
@@ -549,7 +549,7 @@ pub async fn send_deposit_tx(
     info!("Submitting deposit tx: {:?}", msg);
 
     let any_msg = Any::from_msg(&msg).unwrap();
-    send_cosmos_transaction(&relayer.config(), any_msg).await
+    send_cosmos_transaction(&relayer.identifier, &relayer.config(), any_msg).await
 }
 
 pub(crate) fn get_last_scanned_height(relayer: &Relayer) -> u64 {
@@ -629,7 +629,7 @@ pub async fn submit_fee_rate_to_side(relayer: &Relayer, fee_rate: i64) {
 
     info!("Submitting fee rate: {:?}", msg_submit_fee_rate);
     let any_msg = Any::from_msg(&msg_submit_fee_rate).unwrap();
-    match send_cosmos_transaction(relayer.config(), any_msg).await {
+    match send_cosmos_transaction(&relayer.identifier, relayer.config(), any_msg).await {
         Ok(resp) => {
             let tx_response = resp.into_inner().tx_response.unwrap();
             if tx_response.code != 0 {

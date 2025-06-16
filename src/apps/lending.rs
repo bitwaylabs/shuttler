@@ -3,7 +3,6 @@
 use cosmrs::Any;
 use frost_adaptor_signature::VerifyingKey;
 use side_proto::side::tss::{MsgCompleteDkg, MsgCompleteRefreshing, MsgSubmitSignatures, SigningType};
-use tracing::debug;
 
 use crate::config::{VaultKeypair, APP_NAME_LENDING};
 use crate::helper::encoding::{from_base64, hash, pubkey_to_identifier};
@@ -64,7 +63,6 @@ impl DKGAdaptor for KeygenHander {
         match event {
             SideEvent::BlockEvent(events) => {
                 if events.contains_key("initiate_dkg.id") {
-                    println!("Events: {:?}", events);
 
                     let live_peers = mem_store::alive_participants();
 
@@ -75,16 +73,27 @@ impl DKGAdaptor for KeygenHander {
                         .zip(events.get("initiate_dkg.batch_size")?) {
                         
                             let mut participants = vec![];
+                            let mut down_peers = vec![];
+                            let mut names = vec![];
                             for p in ps.split(",") {
                                 if let Ok(keybytes) = from_base64(p) {
                                     let identifier = pubkey_to_identifier(&keybytes);
                                     // not have enough participants
+                                    let moniker = mem_store::get_participant_moniker(&identifier);
                                     if !live_peers.contains(&identifier) {
-                                        break;
-                                    }
+                                        down_peers.push(moniker.clone());
+                                    } 
+                                    names.push(moniker);
+                                    
                                     participants.push(identifier);
                                 }
                             };
+
+                            tracing::debug!("Task {} has {} offline participants {:?} {:?}, threshold {}", id, down_peers.len(), down_peers, names, t);
+                            if down_peers.len() > 0 {
+                                continue;
+                            }
+
                             if let Ok(threshold) = t.parse() {
                                 if threshold as usize * 3 >= participants.len() * 2  {
                                     if let Ok(batch_size) = b.parse() {
@@ -116,7 +125,7 @@ impl DKGAdaptor for KeygenHander {
             pub_keys.push(hexkey);
         });
 
-        debug!("Oracle pubkey >>>: {:?}", pub_keys);
+        // debug!("Oracle pubkey >>>: {:?}", pub_keys);
 
         // save dkg id and keys for refresh
         ctx.general_store.save(&format!("{}", task.id).as_str(), &pub_keys.join(","));
