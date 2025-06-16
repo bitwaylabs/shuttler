@@ -3,7 +3,6 @@
 use cosmrs::Any;
 use frost_adaptor_signature::VerifyingKey;
 use side_proto::side::tss::{MsgCompleteDkg, MsgCompleteRefreshing, MsgSubmitSignatures, SigningType};
-use tracing::debug;
 
 use crate::config::{VaultKeypair, APP_NAME_LENDING};
 use crate::helper::encoding::{from_base64, hash, pubkey_to_identifier};

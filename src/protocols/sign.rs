@@ -444,7 +444,7 @@ impl<H> StandardSigner<H> where H: SignAdaptor{
         let signaure = ctx.node_key.sign(raw, None).to_vec();
         message.signature = signaure;
     
-        tracing::debug!("Broadcasting: {:?}", message);
+        tracing::debug!("Broadcasting: {:?}", message.task_id);
         let message = serde_json::to_vec(&message).expect("Failed to serialize Sign package");
         publish_topic_message(ctx, self.topic(), message);
     }
