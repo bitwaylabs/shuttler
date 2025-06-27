@@ -5,7 +5,7 @@ use std::sync::Arc;
 use axum::{extract::State, Json};
 use frost_adaptor_signature::Identifier;
 
-use crate::helper::{mem_store, store::Store};
+use crate::helper::mem_store;
 
 pub async fn home() -> &'static str  {
     "Welcome to Shuttler"
