@@ -421,6 +421,7 @@ impl<H> StandardSigner<H> where H: SignAdaptor{
                 },
                 Err(e) => {
                     error!("aggregate error: {}", e);
+                    metrics::counter!("signing_failure").increment(1);
                     return
                 }
             };
