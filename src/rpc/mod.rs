@@ -26,6 +26,11 @@ impl AppState {
 pub async fn run_rpc_server(rpc: String, task_store: Arc<DefaultStore<String, Task>>) -> std::result::Result<(), std::io::Error>{
 
     let recorder =  metrics_prometheus::install();
+
+    metrics::counter!("signing_failure").absolute(0);
+    metrics::counter!("dkg_failure").absolute(0);
+    metrics::counter!("refresh_failure").absolute(0);
+
     let state2 = AppState::new(task_store, recorder);
     // let shared_state = Arc::new(Context{});
     
