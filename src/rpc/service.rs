@@ -15,9 +15,13 @@ pub async fn health() -> &'static str {
     "OK"
 }
 pub async fn metrics(State(state): State<super::AppState>) -> String {
-    let list= state.task_store.list();
+    // let list= state.task_store.list();
+
+    match prometheus::TextEncoder::new().encode_to_string(&state.recorder.registry().gather()) {
+        Ok(report) => report,
+        Err(e) => format!("Error occurs in report generation : {e}"),
+    }
     
-    format!("hello metrics: {}", list.len())
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]

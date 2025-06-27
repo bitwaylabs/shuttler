@@ -113,6 +113,8 @@ impl<H> DKG<H> where H: DKGAdaptor {
             return;
         }
 
+        metrics::counter!("dkg_start").increment(1);
+
         let mut rng = thread_rng();
         let mut payload_data = vec![];
         let mut secrets = vec![];
@@ -430,11 +432,13 @@ impl<H> DKG<H> where H: DKGAdaptor {
                             },
                             Err(e) => {
                                 error!("Failed to compute threshold key: {} {:?}", task_id, e);
+                                metrics::counter!("dkg_failure").increment(1);
                             }
                         }; 
                     });
 
                     self.handler.on_complete(ctx, &mut task, keys);
+                    metrics::counter!("dkg_end").increment(1);
             
                 }
             }

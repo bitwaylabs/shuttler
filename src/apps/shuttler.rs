@@ -168,14 +168,18 @@ impl<'a> Shuttler<'a> {
         let identifier2 = identifier.clone();
         spawn(async move {
             while let Ok(message) = tx_receiver.recv() {
-                // println!("Received: {:?}", message);
+                metrics::counter!("transaction_total").increment(1);
                 match send_cosmos_transaction(&identifier2, &conf2, message).await {
                     Ok(resp) => {
                         if let Some(inner) = resp.into_inner().tx_response {
-                            debug!("Submited {}, {}, {}", inner.txhash, inner.code, inner.raw_log)
+                            debug!("Submited {}, {}, {}", inner.txhash, inner.code, inner.raw_log);
+                            metrics::counter!("transaction_success").increment(1);
                         };
                     },
-                    Err(e) => error!("Submit error: {:?}", e),
+                    Err(e) => {
+                        error!("Submit error: {:?}", e);
+                        metrics::counter!("transaction_failure").increment(1);
+                    },
                 };
             }
         });
@@ -232,24 +236,14 @@ impl<'a> Shuttler<'a> {
                         }
                     }
                 }
-                // recv = sidechain_event_stream.next() => {
-                //     match recv {
-                //         Some(Ok(msg)) => {
-                //             self.handle_block_event(&mut context, msg);
-                //         },
-                //         _ => {
-                //             tracing::error!("websocket error!");
-                //             sidechain_event_stream = connect_ws_client(&conf.side_chain.rpc).await;
-                //         }
-                //     }
-                // }
                 _ = ticker.tick() => {
                     self.handle_missed_tss_signing_request(&mut context).await;
                     self.handle_missed_bridge_signing_request(&mut context).await;
                 }
                 swarm_event = context.swarm.select_next_some() => match swarm_event {
-                    SwarmEvent::Behaviour(ShuttlerBehaviourEvent::Gossip(gossipsub::Event::Message{ message, .. })) => {
+                    SwarmEvent::Behaviour(ShuttlerBehaviourEvent::Gossip(gossipsub::Event::Message{ message, propagation_source, .. })) => {
                         update_received_heartbeat(&context, &message);
+                        metrics::counter!("recieved_messages", "sender"=> message.source.unwrap_or(propagation_source).to_string()).increment(1);
                         for app in &self.apps {
                             dispatch_messages(app, &mut context, &message);
                         }
@@ -286,6 +280,8 @@ impl<'a> Shuttler<'a> {
                     SwarmEvent::ConnectionEstablished { peer_id, ..} => {
                         if self.is_white_listed_peer(&peer_id).await {
                             context.swarm.behaviour_mut().gossip.add_explicit_peer(&peer_id);
+                            let (count, _) = context.swarm.connected_peers().size_hint();
+                            metrics::counter!("p2p_peers").absolute(count as u64);
                         } else {
                             let _ = context.swarm.disconnect_peer_id(peer_id);
                         }
@@ -367,6 +363,7 @@ impl<'a> Shuttler<'a> {
                 if let Some(b) = block { 
                     let height = b.header.height.value();
                     debug!("Block: #{:?}, offline: {:?}", height, mem_store::offline_participants_monikers());
+                    metrics::counter!("height").absolute(height);
                     sending_heart_beat(ctx, height);
                 }
                 if let Some(finalize_block) = result_finalize_block {
@@ -399,8 +396,6 @@ impl<'a> Shuttler<'a> {
                     }
                     return
                 } else {
-                    // parse the nonce from r.options.unwrap().
-                    // r.r#type().
                     let mut sign_mode = SignMode::Sign;
                     match r.r#type() {
                         side_proto::side::tss::SigningType::SchnorrWithCommitment => if let Some(o) = &r.options {
@@ -415,6 +410,9 @@ impl<'a> Shuttler<'a> {
                                     sign_mode = SignMode::SignWithAdaptorPoint(adaptor)
                                 }
                             }
+                        },
+                        side_proto::side::tss::SigningType::SchnorrWithTweak => {  
+                            sign_mode = SignMode::SignWithTweak
                         },
                         _ => {},
                     };
@@ -440,6 +438,7 @@ impl<'a> Shuttler<'a> {
         }
         
         if let Some(lending) = self.apps.iter().find(|a| a.name() == APP_NAME_LENDING) {
+            metrics::counter!("signing-retry", "module" => "lending").increment(tasks.len() as u64);
             let _ = lending.execute(ctx, tasks);
         };
 
@@ -480,6 +479,7 @@ impl<'a> Shuttler<'a> {
         }
         
         if let Some(app) = self.apps.iter().find(|a| a.name() == APP_NAME_BRIDGE) {
+            metrics::counter!("signing-retry", "module" => "bridge").increment(tasks.len() as u64);
             let _ = app.execute(ctx, tasks);
         };
 

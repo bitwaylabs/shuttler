@@ -11,6 +11,7 @@ use lazy_static::lazy_static;
 
 use crate::apps::Context;
 use crate::config::BLOCK_TOLERENCE;
+use crate::helper::encoding::identifier_to_base64;
 use super::store::Store;
 use super::{gossip::HeartBeatMessage, now};
 
@@ -87,6 +88,9 @@ pub fn update_alive_table(self_identifier: &Identifier, alive: HeartBeatMessage)
     table.insert(alive.payload.identifier, alive.payload.block_height);
     table.retain(|_, v| v.abs_diff(alive.payload.block_height) <= BLOCK_TOLERENCE);
 
+    metrics::counter!("heart_beat", "moniker"=> get_moniker(&alive.payload.identifier)).absolute(alive.payload.block_height);
+    metrics::counter!("online_participants").absolute(table.len() as u64);
+
 }
 
 pub fn count_task_participants(ctx: &Context, key: &String) -> Vec<Identifier> {
@@ -122,6 +126,11 @@ pub fn is_peer_trusted_peer( ctx: &Context, identifier: &Identifier) -> bool {
 pub fn add_moniker(identifier: &Identifier, moniker: String) {
     let mut map = Monikers.lock().unwrap();
     map.insert(identifier.clone(), moniker);
+}
+
+pub fn get_moniker(identifier: &Identifier) -> String  {
+    let map = Monikers.lock().unwrap();
+    map.get(identifier).unwrap_or(&identifier_to_base64(identifier)).to_owned()
 }
 
 pub fn get_dkg_round1_secret_packet(task_id: &str) -> Option<Vec<dkg::round1::SecretPackage>> {
