@@ -282,16 +282,16 @@ impl<'a> Shuttler<'a> {
                     },
                     SwarmEvent::ConnectionEstablished { peer_id, ..} => {
                         if self.is_white_listed_peer(&peer_id).await {
-                            context.swarm.behaviour_mut().gossip.add_explicit_peer(&peer_id);
                             let (count, _) = context.swarm.connected_peers().size_hint();
+                            if count < context.conf.max_peers {
+                                context.swarm.behaviour_mut().gossip.add_explicit_peer(&peer_id);
+                                info!("Connected to {}", peer_id)
+                            }
                             metrics::counter!("p2p_peers").absolute(count as u64);
                         } else {
                             let _ = context.swarm.disconnect_peer_id(peer_id);
                         }
                         
-                        info!("Connected to {}", peer_id)
-
-                        // info!("Connected peers {:?}", context.swarm.connected_peers().map(|i|).collect::<Vec<_>>());
                     },
                     SwarmEvent::ConnectionClosed { peer_id, cause, .. } => {
                         info!("Disconnected {peer_id}: {:?}", cause);

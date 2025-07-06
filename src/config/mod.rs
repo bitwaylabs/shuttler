@@ -28,6 +28,10 @@ fn default_rpc() -> String{
     format!("127.0.0.1:6780")
 }
 
+fn default_max_peers() -> usize {
+    10
+}
+
 /// Threshold Signature Configuration
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Config {
@@ -39,6 +43,8 @@ pub struct Config {
     #[serde(default = "default_rpc")]
     pub rpc_address: String,
     pub bootstrap_nodes: Vec<String>,
+    #[serde(default = "default_max_peers")]
+    pub max_peers: usize,
     /// logger level
     pub log_level: String,
     pub mnemonic: String,
@@ -227,6 +233,7 @@ impl Config {
             enable_rpc: false,
             rpc_address: default_rpc(),
             bootstrap_nodes: vec![],
+            max_peers: default_max_peers(),
             log_level: "debug".to_string(),
             mnemonic: mnemonic.to_string(),
             priv_validator_key_path: "priv_validator_key.json".to_string(),
