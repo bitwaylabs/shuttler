@@ -68,9 +68,9 @@ fn initial_swarm(keybyte: impl AsMut<[u8]>) -> Swarm<ShuttlerBehaviour> {
                 // .validate_messages() // This sets the kind of message validation. The default is Strict (enforce message signing)
                 .message_id_fn(message_id_fn) // content-address messages. No two messages of the same content will be propagated.
                 .max_transmit_size(512000)
-                .gossip_retransimission(10) // default is 3
+                // .gossip_retransimission(10) // default is 3
                 .flood_publish(false)
-                .gossip_factor(0.5)
+                .gossip_factor(0.4)
                 // .graft_flood_threshold(graft_flood_threshold)
                 .build()
                 .map_err(|msg| io::Error::new(io::ErrorKind::Other, msg))?; // Temporary hack because `build` does not return a proper `std::error::Error`.
