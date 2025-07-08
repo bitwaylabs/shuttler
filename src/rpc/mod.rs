@@ -13,19 +13,27 @@ pub use service::*;
 #[derive(Clone)]
 pub struct AppState {
     pub task_store: Arc<DefaultStore<String, Task>>,
+    pub recorder:  metrics_prometheus::Recorder,
+    
 }
 
 impl AppState {
-    pub fn new(task_store: Arc<DefaultStore<String, Task>>) -> Self {
-        Self { task_store }
+    pub fn new(task_store: Arc<DefaultStore<String, Task>>, recorder:  metrics_prometheus::Recorder ) -> Self {
+        Self { task_store, recorder }
     }
 }
 
 pub async fn run_rpc_server(rpc: String, task_store: Arc<DefaultStore<String, Task>>) -> std::result::Result<(), std::io::Error>{
 
-    let state2 = AppState::new(task_store);
-    // let shared_state = Arc::new(Context{});
+    let recorder =  metrics_prometheus::install();
 
+    metrics::counter!("signing_failure").absolute(0);
+    metrics::counter!("dkg_failure").absolute(0);
+    metrics::counter!("refresh_failure").absolute(0);
+
+    let state2 = AppState::new(task_store, recorder);
+    // let shared_state = Arc::new(Context{});
+    
     let app = Router::new()
         // .route("/address", get(addresses))
         .route("/metrics", get(metrics))
@@ -35,8 +43,9 @@ pub async fn run_rpc_server(rpc: String, task_store: Arc<DefaultStore<String, Ta
         // .layer(Extension(state2))
         .with_state(state2)
         .route("/", get(home));
+    info!("Starting RPC Server({})...", rpc);
     let listener = tokio::net::TcpListener::bind(rpc).await.expect("RPC Port is unavailable.");
-    info!("Starting RPC Server...");
+    
     axum::serve(listener, app).await
 
 }

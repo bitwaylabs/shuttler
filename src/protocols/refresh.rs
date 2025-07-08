@@ -115,6 +115,8 @@ impl<H> ParticipantRefresher<H> where H: RefreshAdaptor {
             return
         }
 
+        metrics::counter!("refresh_start").increment(1);
+
         let mut packages = vec![];
         let mut secrets = vec![];
         for _k in refresh_input.keys.iter() {
@@ -415,12 +417,13 @@ impl<H> ParticipantRefresher<H> where H: RefreshAdaptor {
                     },
                     Err(e) => {
                         error!("Failed to compute threshold key: {} {:?}", task_id, e);
+                        metrics::counter!("refresh_failure").increment(1);
                     }
                 }; 
             });
 
             self.handler.on_complete(ctx, &mut task, keys);
-      
+            metrics::counter!("refresh_end").increment(1);
         }
     }
 }

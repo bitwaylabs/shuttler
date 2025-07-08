@@ -66,6 +66,8 @@ impl Candidate {
                 self.identifiers.push( id );
             }
         });
+
+        metrics::counter!("total_participants").absolute(self.identifiers.len() as u64);
     }
 
     pub fn identifiers(&self) -> &Vec<Identifier> {

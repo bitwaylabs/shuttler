@@ -56,7 +56,7 @@ pub fn create_oracle_event(env: MockEnv, height: Height) -> SideEvent {
     creation.insert("initiate_dkg.id".to_owned(), vec![height.value().to_string()]);
     creation.insert("initiate_dkg.participants".to_owned(), vec![env.participants[0..n].join(",")]);
     creation.insert("initiate_dkg.threshold".to_owned(), vec![(n - 1).to_string()]);
-    creation.insert("initiate_dkg.batch_size".to_owned(), vec!["2".to_owned()]);
+    creation.insert("initiate_dkg.batch_size".to_owned(), vec!["100".to_owned()]);
 
     SideEvent::BlockEvent(creation)
 }

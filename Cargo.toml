@@ -1,7 +1,7 @@
 [package]
 edition = "2021"
 name = "shuttler"
-version = "2.0.0-rc4"
+version = "2.0.0-rc5"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -45,6 +45,9 @@ tokio-tungstenite = {version = "0.26.1", features = ["native-tls"] }
 toml = "0.8.14"
 tracing = "0.1.37"
 tracing-subscriber = {version = "0.3.18", features = ["env-filter"]}
+metrics = "0.24.2"
+metrics-prometheus = "0.11.0"
+prometheus = "0.14.0"
 
 cosmrs = {version = "0.21", features = ["grpc"]}
 tendermint-proto = "0.40.0"

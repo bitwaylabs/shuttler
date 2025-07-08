@@ -1,9 +1,9 @@
-
 use std::time::Duration;
 
 use axum::body::Bytes;
 use futures::stream::SplitStream;
 use futures::{SinkExt, StreamExt};
+use tokio::{select, signal};
 use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 use tracing::{error, info, warn};
 use tokio::sync::{mpsc};
@@ -218,20 +218,27 @@ impl WebSocketClient {
     ) -> Result<(), Box<dyn std::error::Error>> {
 
         // Save connection parameters for potential reconnection
-        self.server_url = server_url;
+        self.server_url = server_url.clone();
 
+
+        // let ser = server_url;
         loop {
-
-            match self.connect_internal(&self.server_url.clone(), 0).await {
-                Ok(_) => {
-                    return Ok(());
-                }
-                Err(e) => {
-                    error!("Connection attempt failed: {}", e);
-                    tokio::time::sleep(self.config.reconnect_delay).await;
-                    continue;
-                }
-            };
+            select! {
+                result = self.connect_internal(&server_url, 0) => match result{
+                    Ok(_) => {
+                        return Ok(());
+                    }
+                    Err(e) => {
+                        error!("Connection attempt failed: {}", e);
+                        tokio::time::sleep(self.config.reconnect_delay).await;
+                        continue;
+                    }
+                },
+                _ = signal::ctrl_c() => {
+                    info!("Cancel reconnecting and exit.");
+                    std::process::exit(0)
+                },
+            }
 
         }
     }

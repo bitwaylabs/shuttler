@@ -95,7 +95,7 @@ impl DKGAdaptor for KeygenHander {
                             }
 
                             if let Ok(threshold) = t.parse() {
-                                if threshold as usize * 3 >= participants.len() * 2  {
+                                if threshold as usize * 2 > participants.len()  {
                                     if let Ok(batch_size) = b.parse() {
                                         tasks.push(Task::new_dkg(format!("lending-dkg-{}", id), participants, threshold, batch_size));
                                     }
@@ -281,7 +281,6 @@ impl RefreshAdaptor for RefreshHandler {
         match event {
             SideEvent::BlockEvent( events) => {
                 if events.contains_key("initiate_refreshing.id") {
-                    println!("Events: {:?}", events);
                     let mut tasks = vec![];
                     let live_peers = mem_store::alive_participants();
                     for ((id, dkg_id), removed) in events.get("initiate_refreshing.id")?.iter()

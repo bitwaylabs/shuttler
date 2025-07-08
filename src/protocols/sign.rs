@@ -99,6 +99,10 @@ impl<H> StandardSigner<H> where H: SignAdaptor{
             commitments.insert(index, input_commit.clone());
         });
 
+        if nonces.len() ==0 {
+            return
+        }
+
         // Save nonces to local storage.
         ctx.nonce_store.save(&task.id, &nonces);
 
@@ -113,6 +117,8 @@ impl<H> StandardSigner<H> where H: SignAdaptor{
         self.broadcast_signing_packages(ctx, &mut msg);
 
         self.received_sign_message(ctx, msg);
+
+        metrics::counter!("signing_start").increment(1);
     }
 
 
@@ -415,6 +421,7 @@ impl<H> StandardSigner<H> where H: SignAdaptor{
                 },
                 Err(e) => {
                     error!("aggregate error: {}", e);
+                    metrics::counter!("signing_failure").increment(1);
                     return
                 }
             };
@@ -435,6 +442,9 @@ impl<H> StandardSigner<H> where H: SignAdaptor{
         
         if let Err(e) = self.handler.on_complete(ctx, &mut task) {
             error!("signing error: {:?}", e);
+            metrics::counter!("signing_failure").increment(1);
+        } else {
+            metrics::counter!("signing_end").increment(1);
         }
 
     }
