@@ -70,7 +70,8 @@ fn initial_swarm(keybyte: impl AsMut<[u8]>) -> Swarm<ShuttlerBehaviour> {
                 .max_transmit_size(512000)
                 // .gossip_retransimission(10) // default is 3
                 .flood_publish(false)
-                .gossip_factor(0.4)
+                // .mesh_n(mesh_n) // default is 6
+                .gossip_factor(0.5)
                 // .graft_flood_threshold(graft_flood_threshold)
                 .build()
                 .map_err(|msg| io::Error::new(io::ErrorKind::Other, msg))?; // Temporary hack because `build` does not return a proper `std::error::Error`.
