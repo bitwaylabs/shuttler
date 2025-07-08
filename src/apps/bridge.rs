@@ -332,6 +332,7 @@ impl RefreshAdaptor for RefreshHandler {
         if let Ok(id) = task.id.replace("lending-refresh-", "").parse::<u64>() {
 
             if keys.len() == 0 {
+                error!("have not received any refreshed key for task: {}", id);
                 return;
             }
             
@@ -339,7 +340,10 @@ impl RefreshAdaptor for RefreshHandler {
                 
                 let vault_addrs = match ctx.general_store.get(&format!("create-vault-{}", task.memo).as_str()) {
                     Some(k) => k.split(',').map(|t| t.to_owned()).collect::<Vec<_>>(),
-                    None => return,
+                    None => {
+                        error!("have not found original key for updated: {}", task.memo);
+                        return
+                    },
                 };
 
                 vault_addrs.iter().for_each(|k| {
