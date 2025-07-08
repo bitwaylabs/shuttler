@@ -329,7 +329,7 @@ impl RefreshAdaptor for RefreshHandler {
 
     fn on_complete(&self, ctx: &mut Context, task: &mut Task, keys: Vec<(frost_adaptor_signature::keys::KeyPackage, frost_adaptor_signature::keys::PublicKeyPackage)>) {
 
-        if let Ok(id) = task.id.replace("lending-refresh-", "").parse::<u64>() {
+        if let Ok(id) = task.id.replace("bridge-refresh-", "").parse::<u64>() {
 
             if keys.len() == 0 {
                 error!("have not received any refreshed key for task: {}", id);
