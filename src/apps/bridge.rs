@@ -316,7 +316,7 @@ impl RefreshAdaptor for RefreshHandler {
                                 remove_participants: removed_ids,
                                 new_participants: participants,
                             };
-                            tasks.push(Task::new_with_input(task_id, TaskInput::REFRESH(input), "".to_owned()));
+                            tasks.push(Task::new_with_input(task_id, TaskInput::REFRESH(input), dkg_id));
                         };
                     return Some(tasks);
                 }
@@ -337,7 +337,7 @@ impl RefreshAdaptor for RefreshHandler {
             
             if let Some(new_key) = keys.iter().next() {
                 
-                let vault_addrs = match ctx.general_store.get(&format!("create-vault-{}", task.id).as_str()) {
+                let vault_addrs = match ctx.general_store.get(&format!("create-vault-{}", task.memo).as_str()) {
                     Some(k) => k.split(',').map(|t| t.to_owned()).collect::<Vec<_>>(),
                     None => return,
                 };
