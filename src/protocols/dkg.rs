@@ -255,7 +255,7 @@ impl<H> DKG<H> where H: DKGAdaptor {
                 let raw = serde_json::to_vec(&message.payload).unwrap();
                 let sig = ed25519_compact::Signature::from_slice(&message.signature).unwrap();
                 if public_key.verify(&raw, &sig).is_err() {
-                    debug!("Reject, untrusted package from {:?}", message.sender);
+                    debug!("Reject, untrusted package from {:?}", mem_store::get_moniker(&message.sender));
                     return;
                 }
             }
@@ -277,7 +277,7 @@ impl<H> DKG<H> where H: DKGAdaptor {
         
         if received.contains_key(&packets.sender) {
             // reject duplicated round1 package
-            warn!("duplicated round1 package from {:?}: {}", packets.sender, task_id);
+            warn!("duplicated round1 package from {:?}: {}", mem_store::get_moniker(&packets.sender), task_id);
             return;
         }
 
@@ -349,7 +349,7 @@ impl<H> DKG<H> where H: DKGAdaptor {
         let mut received = ctx.db_round2.get(task_id).unwrap_or(BTreeMap::new()); 
         if received.contains_key(&packets.sender) {
             // already received this sender's round1 package
-            warn!("duplicated round2 package from {:?}: {}", packets.sender, task_id);
+            warn!("duplicated round2 package from {:?}: {}", mem_store::get_moniker(&packets.sender), task_id);
             return;
         }
         received.insert(packets.sender, received_round2_package);

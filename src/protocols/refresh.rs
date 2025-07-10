@@ -277,7 +277,7 @@ impl<H> ParticipantRefresher<H> where H: RefreshAdaptor {
         let mut local = ctx.db_round1.get(task_id).map_or(BTreeMap::new(), |v|v);
         if local.contains_key(&packets.sender) {
             // already received this sender's round1 package
-            warn!("duplicated round1 package from {:?}: {}", packets.sender, task_id);
+            warn!("duplicated round1 package from {:?}: {}", mem_store::get_moniker(&packets.sender), task_id);
             return;
         }
         // merge packets with local
@@ -336,7 +336,7 @@ impl<H> ParticipantRefresher<H> where H: RefreshAdaptor {
         let mut received = ctx.db_round2.get(task_id).unwrap_or(BTreeMap::new()); 
         if received.contains_key(&packets.sender) {
             // already received this sender's round2 package
-            warn!("duplicated round2 package from {:?}: {}", packets.sender, task_id);
+            warn!("duplicated round2 package from {:?}: {}", mem_store::get_moniker(&packets.sender), task_id);
             return;
         }
         received.insert(packets.sender, round2_packages);
