@@ -1,6 +1,5 @@
 use std::time::Duration;
 
-use axum::body::Bytes;
 use futures::stream::SplitStream;
 use futures::{SinkExt, StreamExt};
 use tokio::{select, signal};
@@ -458,13 +457,13 @@ impl WebSocketClient {
     ///
     /// `Ok(())` if the ping was sent, or an error if not connected.
     pub async fn ping(&self) -> Result<(), Box<dyn std::error::Error>> {
-        if let Some(sender) = &self.sender {
+        // if let Some(sender) = &self.sender {
             // Use an empty binary message as a ping
-            sender.send(Message::Binary(Bytes::new())).await?;
+            // sender.send(Message::Binary(Bytes::new())).await?;
             Ok(())
-        } else {
-            Err("Not connected to WebSocket server".into())
-        }
+        // } else {
+        //     Err("Not connected to WebSocket server".into())
+        // }
     }
 
     /// Checks if a connection is active and sends a ping to verify connectivity.

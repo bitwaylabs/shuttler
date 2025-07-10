@@ -316,7 +316,7 @@ impl RefreshAdaptor for RefreshHandler {
                                 remove_participants: removed_ids,
                                 new_participants: participants,
                             };
-                            tasks.push(Task::new_with_input(task_id, TaskInput::REFRESH(input), "".to_owned()));
+                            tasks.push(Task::new_with_input(task_id, TaskInput::REFRESH(input), dkg_id));
                         };
                     return Some(tasks);
                 }
@@ -329,17 +329,21 @@ impl RefreshAdaptor for RefreshHandler {
 
     fn on_complete(&self, ctx: &mut Context, task: &mut Task, keys: Vec<(frost_adaptor_signature::keys::KeyPackage, frost_adaptor_signature::keys::PublicKeyPackage)>) {
 
-        if let Ok(id) = task.id.replace("lending-refresh-", "").parse::<u64>() {
+        if let Ok(id) = task.id.replace("bridge-refresh-", "").parse::<u64>() {
 
             if keys.len() == 0 {
+                error!("have not received any refreshed key for task: {}", id);
                 return;
             }
             
             if let Some(new_key) = keys.iter().next() {
                 
-                let vault_addrs = match ctx.general_store.get(&format!("create-vault-{}", task.id).as_str()) {
+                let vault_addrs = match ctx.general_store.get(&format!("create-vault-{}", task.memo).as_str()) {
                     Some(k) => k.split(',').map(|t| t.to_owned()).collect::<Vec<_>>(),
-                    None => return,
+                    None => {
+                        error!("have not found original key for updated: {}", task.memo);
+                        return
+                    },
                 };
 
                 vault_addrs.iter().for_each(|k| {

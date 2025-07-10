@@ -10,8 +10,7 @@ pub use tracing::error;
 use usize as Index;
 use crate::{apps::{Context, FrostSignature, SideEvent, SignMode, Status, SubscribeMessage, Task, TaskInput}, config::VaultKeypair, 
     helper::{
-        bitcoin::convert_tweak, gossip::publish_topic_message, 
-        store::Store
+        bitcoin::convert_tweak, gossip::publish_topic_message, mem_store, store::Store
 }};
 
 use ed25519_compact::{PublicKey, Signature};
@@ -142,7 +141,7 @@ impl<H> StandardSigner<H> where H: SignAdaptor{
                 let raw = serde_json::to_vec(&msg.package).unwrap();
                 let sig = Signature::from_slice(&msg.signature).unwrap();
                 if public_key.verify(&raw, &sig).is_err() {
-                    debug!("Reject, untrusted package from {:?}", msg.sender);
+                    debug!("Reject, untrusted package from {:?}", mem_store::get_moniker(&msg.sender));
                     return;
                 }
             }

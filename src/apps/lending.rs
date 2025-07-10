@@ -323,7 +323,7 @@ impl RefreshAdaptor for RefreshHandler {
                                 remove_participants: removed_ids,
                                 new_participants: participants,
                             };
-                            tasks.push(Task::new_with_input(task_id, TaskInput::REFRESH(input), "".to_owned()));
+                            tasks.push(Task::new_with_input(task_id, TaskInput::REFRESH(input), dkg_id));
                         };
                     return Some(tasks);
                 }
