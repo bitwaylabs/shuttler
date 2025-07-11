@@ -88,7 +88,8 @@ pub fn update_alive_table(self_identifier: &Identifier, alive: HeartBeatMessage)
     table.insert(alive.payload.identifier, alive.payload.block_height);
     table.retain(|_, v| v.abs_diff(alive.payload.block_height) <= BLOCK_TOLERENCE);
 
-    metrics::counter!("heart_beat", "moniker"=> get_moniker(&alive.payload.identifier), "version"=>alive.payload.v.unwrap_or("unknown".to_owned())).absolute(alive.payload.block_height);
+    // metrics::counter!("heart_beat", "moniker"=> get_moniker(&alive.payload.identifier), "version"=>alive.payload.v.unwrap_or("unknown".to_owned())).absolute(alive.payload.block_height);
+    metrics::counter!("heart_beat", "moniker"=> get_moniker(&alive.payload.identifier)).absolute(alive.payload.block_height);
     metrics::counter!("online_participants").absolute(table.len() as u64);
 
 }
