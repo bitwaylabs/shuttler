@@ -68,7 +68,6 @@ fn initial_swarm(keybyte: impl AsMut<[u8]>) -> Swarm<ShuttlerBehaviour> {
                 // .validate_messages() // This sets the kind of message validation. The default is Strict (enforce message signing)
                 .message_id_fn(message_id_fn) // content-address messages. No two messages of the same content will be propagated.
                 .duplicate_cache_time(Duration::from_secs(60*60*2))
-                
                 .max_transmit_size(512000)
                 // .gossip_retransimission(10) // default is 3
                 .flood_publish(false)
@@ -258,9 +257,9 @@ impl<'a> Shuttler<'a> {
                     self.handle_missed_bridge_signing_request(&mut context).await;
                 }
                 swarm_event = context.swarm.select_next_some() => match swarm_event {
-                    SwarmEvent::Behaviour(ShuttlerBehaviourEvent::Gossip(gossipsub::Event::Message{ message, propagation_source, message_id })) => {
+                    SwarmEvent::Behaviour(ShuttlerBehaviourEvent::Gossip(gossipsub::Event::Message{ message, propagation_source, .. })) => {
                         update_received_heartbeat(&context, &message);
-                        tracing::debug!("propagation source: {:?}, {:?}", propagation_source,  message_id.to_string());
+                        // tracing::debug!("propagation source: {:?}, {:?}", propagation_source,  message_id.to_string());
                         metrics::counter!("recieved_messages", "sender"=> message.source.unwrap_or(propagation_source).to_string()).increment(1);
                         for app in &self.apps {
                             dispatch_messages(app, &mut context, &message);
