@@ -258,6 +258,7 @@ impl<'a> Shuttler<'a> {
                 swarm_event = context.swarm.select_next_some() => match swarm_event {
                     SwarmEvent::Behaviour(ShuttlerBehaviourEvent::Gossip(gossipsub::Event::Message{ message, propagation_source, .. })) => {
                         update_received_heartbeat(&context, &message);
+                        tracing::debug!("propagation source: {:?}", propagation_source);
                         metrics::counter!("recieved_messages", "sender"=> message.source.unwrap_or(propagation_source).to_string()).increment(1);
                         for app in &self.apps {
                             dispatch_messages(app, &mut context, &message);
