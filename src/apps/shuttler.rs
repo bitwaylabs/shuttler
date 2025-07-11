@@ -104,7 +104,7 @@ fn initial_swarm(keybyte: impl AsMut<[u8]>) -> Swarm<ShuttlerBehaviour> {
             })
         }) 
         .expect("swarm behaviour config failed")
-        .with_swarm_config(|c| c.with_idle_connection_timeout(Duration::from_secs(60000)))
+        // .with_swarm_config(|c| c.with_idle_connection_timeout(Duration::from_secs(60000)))
         .build()
 }
 
@@ -260,7 +260,7 @@ impl<'a> Shuttler<'a> {
                 swarm_event = context.swarm.select_next_some() => match swarm_event {
                     SwarmEvent::Behaviour(ShuttlerBehaviourEvent::Gossip(gossipsub::Event::Message{ message, propagation_source, message_id })) => {
                         update_received_heartbeat(&context, &message);
-                        tracing::debug!("propagation source: {:?}, {:?}", propagation_source,  message_id);
+                        tracing::debug!("propagation source: {:?}, {:?}", propagation_source,  message_id.to_string());
                         metrics::counter!("recieved_messages", "sender"=> message.source.unwrap_or(propagation_source).to_string()).increment(1);
                         for app in &self.apps {
                             dispatch_messages(app, &mut context, &message);
