@@ -30,7 +30,7 @@ pub struct HeartBeatPayload {
     pub identifier: Identifier,
     pub last_seen: u64,
     pub block_height: u64,
-    pub v: Option<String>,
+    // pub v: Option<String>,
 }
 
 pub fn subscribe_gossip_topics(swarm: &mut Swarm<ShuttlerBehaviour>, app: &Shuttler) {
@@ -53,7 +53,7 @@ pub fn sending_heart_beat(ctx: &mut Context, block_height: u64) {
             identifier: ctx.identifier.clone(),
             last_seen,
             block_height,
-            v: Some(VERSION.to_string()),
+            // v: Some(VERSION.to_string()),
         };
         let bytes = serde_json::to_vec(&payload).unwrap();
         let signature = ctx.node_key.sign(bytes, None).to_vec();
