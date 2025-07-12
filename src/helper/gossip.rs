@@ -23,6 +23,7 @@ impl SubscribeTopic {
 pub struct HeartBeatMessage {
     pub payload: HeartBeatPayload,
     pub signature: Vec<u8>,
+    pub version: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -30,7 +31,6 @@ pub struct HeartBeatPayload {
     pub identifier: Identifier,
     pub last_seen: u64,
     pub block_height: u64,
-    // pub v: Option<String>,
 }
 
 pub fn subscribe_gossip_topics(swarm: &mut Swarm<ShuttlerBehaviour>, app: &Shuttler) {
@@ -57,7 +57,7 @@ pub fn sending_heart_beat(ctx: &mut Context, block_height: u64) {
         };
         let bytes = serde_json::to_vec(&payload).unwrap();
         let signature = ctx.node_key.sign(bytes, None).to_vec();
-        let alive = HeartBeatMessage { payload, signature };
+        let alive = HeartBeatMessage { payload, signature, version: Some(VERSION.to_string()) };
         let message = serde_json::to_vec(&alive).unwrap();
         publish_message(ctx, SubscribeTopic::HEARTBEAT, message);
         
