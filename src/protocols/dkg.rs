@@ -301,7 +301,7 @@ impl<H> DKG<H> where H: DKGAdaptor {
 
                 if !dkg_input.participants.contains(&ctx.identifier) {
                     ctx.clean_dkg_cache(&task_id);
-                    debug!("Received round1 package from {:?} but not a participant in task: {}", packets.sender, task_id);
+                    debug!("Received round1 package from {:?} but not a participant in task: {}", mem_store::get_moniker(&packets.sender), task_id);
                     return;
                 } else {
                     debug!("Received round1 packets: {} {:?}", &task_id, received.keys().map(|k| mem_store::get_participant_moniker(k)).collect::<Vec<_>>());
@@ -371,7 +371,7 @@ impl<H> DKG<H> where H: DKGAdaptor {
 
                 if !dkg_input.participants.contains(&ctx.identifier) {
                     ctx.clean_dkg_cache(&task_id);
-                    debug!("Received round1 package from {:?} but not a participant in task: {}", packets.sender, task_id);
+                    debug!("Received round1 package from {:?} but not a participant in task: {}",mem_store::get_moniker(&packets.sender), task_id);
                     return;
                 } else {
                     debug!("Received round2 packets: {} {:?}", task_id, received.keys().map(|k| mem_store::get_participant_moniker(k)).collect::<Vec<_>>()); 
