@@ -99,7 +99,7 @@ impl DKGAdaptor for KeygenHander {
                             if let Ok(size) = tks.parse::<i32>() {
                                 let tweaks = (0..size).collect();
                                 if let Ok(threshold) = t.parse() {
-                                    if threshold as usize * 3 >= participants.len() * 2  {
+                                    if threshold as usize * 2 >= participants.len() {
                                         tasks.push(Task::new_dkg_with_tweak(format!("create-vault-{}", id), participants, threshold,  tweaks));
                                     }
                                 }
