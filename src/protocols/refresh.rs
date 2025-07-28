@@ -304,6 +304,7 @@ impl<H> ParticipantRefresher<H> where H: RefreshAdaptor {
 
         // Filter packages from valid participants.
         local.retain(|id, _| refresh_input.new_participants.contains(id));
+        ctx.db_round1.save(&task_id, &local);
 
         if refresh_input.new_participants.len() == local.len() {
             
