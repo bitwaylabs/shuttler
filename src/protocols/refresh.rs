@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use frost_adaptor_signature as frost;
 use frost::{Identifier, keys::dkg::round1};
+use tracing_subscriber::field::debug;
 
 use crate::apps::{Context, SideEvent, Status, SubscribeMessage, Task, TaskInput};
 use crate::helper::gossip::publish_topic_message;
@@ -296,6 +297,11 @@ impl<H> ParticipantRefresher<H> where H: RefreshAdaptor {
             _ => return,
         };
 
+        if !refresh_input.new_participants.contains(&packets.sender) {
+            debug!("Received round1 package from unexpected participant: {:?} - {:?}", packets.sender, mem_store::get_participant_moniker(&packets.sender));
+            return;
+        }
+
         // Filter packages from valid participants.
         local.retain(|id, _| refresh_input.new_participants.contains(id));
 
@@ -353,6 +359,11 @@ impl<H> ParticipantRefresher<H> where H: RefreshAdaptor {
             TaskInput::REFRESH(i) => i,
             _ => return,
         };
+
+        if !refresh_input.new_participants.contains(&packets.sender) {
+            debug!("Received round2 package from unexpected participant: {:?} - {:?}", packets.sender, mem_store::get_participant_moniker(&packets.sender));
+            return;
+        }
 
         // clean up the task if the sender is not in the new participants.
         if !refresh_input.new_participants.contains(&ctx.identifier) {
