@@ -519,7 +519,7 @@ pub async fn send_withdraw_tx(
     proof: Vec<String>,
 ) -> Result<Response<BroadcastTxResponse>, Status> {
     let msg = MsgSubmitWithdrawTransaction {
-        sender: relayer.config().relayer_bitcoin_address().to_string(),
+        sender: relayer.config().relayer_bitcoin_address(),
         blockhash: block_hash.to_string(),
         tx_bytes: to_base64(encode::serialize(tx).as_slice()),
         proof,
