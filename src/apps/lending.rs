@@ -17,6 +17,10 @@ use crate::apps::{App, Context, FrostSignature, Input, SignMode, SubscribeMessag
 use super::event::get_attribute_value;
 use super::{SideEvent, TaskInput};
 
+pub static TASK_PREFIX_KEYGEN: &str = "lending-dkg-";
+pub static TASK_PREFIX_REFRESH: &str = "lending-refresh-";
+pub static TASK_PREFIX_SIGN: &str = "lending-sign-";
+
 pub struct LendingApp {
     pub keygen: DKG<KeygenHander>,
     pub signer: StandardSigner<SignerHandler>,
@@ -97,7 +101,7 @@ impl DKGAdaptor for KeygenHander {
                             if let Ok(threshold) = t.parse() {
                                 if threshold as usize * 2 > participants.len()  {
                                     if let Ok(batch_size) = b.parse() {
-                                        tasks.push(Task::new_dkg(format!("lending-dkg-{}", id), participants, threshold, batch_size));
+                                        tasks.push(Task::new_dkg(format!("{}{}", TASK_PREFIX_KEYGEN, id), participants, threshold, batch_size));
                                     }
                                 }
                             }
@@ -131,7 +135,7 @@ impl DKGAdaptor for KeygenHander {
         ctx.general_store.save(&format!("{}", task.id).as_str(), &pub_keys.join(","));
         
         // convert string array to bytes
-        let id: u64 = task.id.replace("lending-dkg-", "").parse().unwrap();
+        let id: u64 = task.id.replace(TASK_PREFIX_KEYGEN, "").parse().unwrap();
         let mut message_keys = id.to_be_bytes()[..].to_vec();
         for key in pub_keys.iter() {
             let key_bytes = hex::decode(key).unwrap();
@@ -194,7 +198,7 @@ impl SignAdaptor for SignerHandler {
                                         }
                                     );
                                     if sign_inputs.len() > 0 {
-                                        let task= Task::new_signing(format!("lending-{}", id), "" , sign_inputs);
+                                        let task= Task::new_signing(format!("{}{}", TASK_PREFIX_SIGN, id), "" , sign_inputs);
                                         tasks.push(task);
                                     }
                                 }
@@ -236,7 +240,7 @@ impl SignAdaptor for SignerHandler {
                                 }
                             );
                             if sign_inputs.len() > 0 {
-                                let task= Task::new_signing(format!("lending-{}", id), "" , sign_inputs);
+                                let task= Task::new_signing(format!("{}{}", TASK_PREFIX_SIGN, id), "" , sign_inputs);
                                 tasks.push(task);
                             }
                         }
@@ -265,7 +269,7 @@ impl SignAdaptor for SignerHandler {
                 }
             }
             let cosm_msg = MsgSubmitSignatures {
-                id: task.id.replace("lending-", "").parse()?,
+                id: task.id.replace(TASK_PREFIX_SIGN, "").parse()?,
                 sender: ctx.conf.relayer_bitcoin_address(),
                 signatures ,
             };
@@ -291,7 +295,7 @@ impl RefreshAdaptor for RefreshHandler {
                         .zip(events.get("initiate_refreshing.dkg_id")?)
                         .zip(events.get("initiate_refreshing.removed_participants")?){
 
-                            let dkg_keys = match ctx.general_store.get(&format!("lending-dkg-{}", dkg_id).as_str()) {
+                            let dkg_keys = match ctx.general_store.get(&format!("{}{}", TASK_PREFIX_KEYGEN, dkg_id).as_str()) {
                                 Some(k) => k.split(',').map(|t| t.to_owned()).collect::<Vec<_>>(),
                                 None => continue,
                             };
@@ -319,7 +323,7 @@ impl RefreshAdaptor for RefreshHandler {
                                 continue;
                             }
 
-                            let task_id = format!("lending-refresh-{}", id);
+                            let task_id = format!("{}{}", TASK_PREFIX_REFRESH, id);
                             let input = RefreshInput{
                                 id: task_id.clone(),
                                 keys: dkg_keys,
@@ -340,7 +344,7 @@ impl RefreshAdaptor for RefreshHandler {
 
     fn on_complete(&self, ctx: &mut Context, task: &mut Task, keys: Vec<(frost_adaptor_signature::keys::KeyPackage, frost_adaptor_signature::keys::PublicKeyPackage)>) {
 
-        if let Ok(id) = task.id.replace("lending-refresh-", "").parse::<u64>() {
+        if let Ok(id) = task.id.replace(TASK_PREFIX_REFRESH, "").parse::<u64>() {
             let mut message_keys = id.to_be_bytes()[..].to_vec();
             for (priv_key, key) in keys.iter() {
                 // let key_bytes = hex::decode(key).unwrap();

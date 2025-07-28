@@ -11,7 +11,6 @@ use serde::{Deserialize, Serialize};
 
 use frost_adaptor_signature as frost;
 use frost::{Identifier, keys::dkg::round1};
-use tracing_subscriber::field::debug;
 
 use crate::apps::{Context, SideEvent, Status, SubscribeMessage, Task, TaskInput};
 use crate::helper::gossip::publish_topic_message;

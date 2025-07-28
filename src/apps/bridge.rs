@@ -30,6 +30,10 @@ pub struct BridgeApp {
     pub refresh: ParticipantRefresher<RefreshHandler>
 }
 
+pub static TASK_PREFIX_KEYGEN: &str = "create-vault-";
+pub static TASK_PREFIX_REFRESH: &str = "bridge-refresh-";
+
+
 impl BridgeApp {
     pub fn new(conf: Config) -> Self {
         let bitcoin_client = Client::new(
@@ -100,7 +104,7 @@ impl DKGAdaptor for KeygenHander {
                                 let tweaks = (0..size).collect();
                                 if let Ok(threshold) = t.parse() {
                                     if threshold as usize * 2 >= participants.len() {
-                                        tasks.push(Task::new_dkg_with_tweak(format!("create-vault-{}", id), participants, threshold,  tweaks));
+                                        tasks.push(Task::new_dkg_with_tweak(format!("{}{}", TASK_PREFIX_KEYGEN, id), participants, threshold,  tweaks));
                                     }
                                 }
 
@@ -124,7 +128,7 @@ impl DKGAdaptor for KeygenHander {
         let vaults = generate_vault_addresses(ctx, pub_key.clone(), priv_key.clone(), &dkg_input.tweaks, ctx.conf.bitcoin.network);
 
         ctx.general_store.save(&format!("{}", task.id).as_str(), &vaults.join(","));
-        let id: u64 = task.id.replace("create-vault-", "").parse().unwrap();
+        let id: u64 = task.id.replace(TASK_PREFIX_KEYGEN, "").parse().unwrap();
         let mut sig_msg = id.to_be_bytes().to_vec();
 
         for v in &vaults {
@@ -243,7 +247,7 @@ impl SignAdaptor for SignatureHandler {
         None
     }
     fn on_complete(&self, ctx: &mut Context, task: &mut Task) -> anyhow::Result<()> {
-        println!("Signing completed: {:?}, {:?}", ctx.identifier, task.id);
+
         if task.submitted {
             return anyhow::Ok(());
         }
@@ -281,14 +285,13 @@ impl RefreshAdaptor for RefreshHandler {
         match event {
             SideEvent::BlockEvent( events) => {
                 if events.contains_key("initiate_refreshing_bridge.id") {
-                    println!("Events: {:?}", events);
                     let live_peers = mem_store::alive_participants();
                     let mut tasks = vec![];
                     for ((id, dkg_id), removed) in events.get("initiate_refreshing_bridge.id")?.iter()
                         .zip(events.get("initiate_refreshing_bridge.dkg_id")?)
                         .zip(events.get("initiate_refreshing_bridge.removed_participants")?){
 
-                            let vault_addrs = match ctx.general_store.get(&format!("create-vault-{}", dkg_id).as_str()) {
+                            let vault_addrs = match ctx.general_store.get(&format!("{}{}", TASK_PREFIX_KEYGEN, dkg_id).as_str()) {
                                 Some(k) => k.split(',').map(|t| t.to_owned()).collect::<Vec<_>>(),
                                 None => continue,
                             };
@@ -316,7 +319,7 @@ impl RefreshAdaptor for RefreshHandler {
                                 continue;
                             }
 
-                            let task_id = format!("bridge-refresh-{}", id);
+                            let task_id = format!("{}{}", TASK_PREFIX_REFRESH, id);
                             let input = RefreshInput{
                                 id: task_id.clone(),
                                 keys: vault_addrs,
@@ -337,7 +340,7 @@ impl RefreshAdaptor for RefreshHandler {
 
     fn on_complete(&self, ctx: &mut Context, task: &mut Task, keys: Vec<(frost_adaptor_signature::keys::KeyPackage, frost_adaptor_signature::keys::PublicKeyPackage)>) {
 
-        if let Ok(id) = task.id.replace("bridge-refresh-", "").parse::<u64>() {
+        if let Ok(id) = task.id.replace(TASK_PREFIX_REFRESH, "").parse::<u64>() {
 
             if keys.len() == 0 {
                 error!("have not received any refreshed key for task: {}", id);
@@ -346,7 +349,7 @@ impl RefreshAdaptor for RefreshHandler {
             
             if let Some(new_key) = keys.iter().next() {
                 
-                let vault_addrs = match ctx.general_store.get(&format!("create-vault-{}", task.memo).as_str()) {
+                let vault_addrs = match ctx.general_store.get(&format!("{}{}", TASK_PREFIX_KEYGEN, task.memo).as_str()) {
                     Some(k) => k.split(',').map(|t| t.to_owned()).collect::<Vec<_>>(),
                     None => {
                         error!("have not found original key for updated: {}", task.memo);
