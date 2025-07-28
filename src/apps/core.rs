@@ -214,8 +214,8 @@ pub type Round1Store =
 pub type Round2Store = DefaultStore<String, BTreeMap<Identifier, Vec<Vec<u8>>>>;
 
 
-pub type Round1SecetStore = DefaultStore<String, Vec<frost_adaptor_signature::keys::dkg::round1::SecretPackage>>;
-pub type Round2SecetStore = DefaultStore<String, Vec<frost_adaptor_signature::keys::dkg::round2::SecretPackage>>;
+pub type Round1SecretStore = DefaultStore<String, Vec<frost_adaptor_signature::keys::dkg::round1::SecretPackage>>;
+pub type Round2SecretStore = DefaultStore<String, Vec<frost_adaptor_signature::keys::dkg::round2::SecretPackage>>;
 
 pub struct Context {
     pub swarm: Swarm<ShuttlerBehaviour>,
@@ -236,8 +236,8 @@ pub struct Context {
     // dkg stores
     pub db_round1: Round1Store,
     pub db_round2: Round2Store,
-    pub sec_round1: Round1SecetStore,
-    pub sec_round2: Round2SecetStore,
+    pub sec_round1: Round1SecretStore,
+    pub sec_round2: Round2SecretStore,
 }
 
 impl Context {
@@ -274,8 +274,8 @@ impl Context {
 
             db_round1: Round1Store::new(conf.get_database_with_name("round1")),
             db_round2: Round2Store::new(conf.get_database_with_name("round2")),
-            sec_round1: Round1SecetStore::new(conf.get_database_with_name("sec_round1")),
-            sec_round2: Round2SecetStore::new(conf.get_database_with_name("sec_round2")),
+            sec_round1: Round1SecretStore::new(conf.get_database_with_name("sec_round1")),
+            sec_round2: Round2SecretStore::new(conf.get_database_with_name("sec_round2")),
 
             conf,
 

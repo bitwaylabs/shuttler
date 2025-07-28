@@ -178,7 +178,7 @@ impl<'a> Shuttler<'a> {
                 match send_cosmos_transaction(&identifier2, &conf2, message).await {
                     Ok(resp) => {
                         if let Some(inner) = resp.into_inner().tx_response {
-                            debug!("Submited {}, {}, {}", inner.txhash, inner.code, inner.raw_log);
+                            debug!("Submitted {}, {}, {}", inner.txhash, inner.code, inner.raw_log);
                             metrics::counter!("transaction_success").increment(1);
                         };
                     },
@@ -260,7 +260,7 @@ impl<'a> Shuttler<'a> {
                     SwarmEvent::Behaviour(ShuttlerBehaviourEvent::Gossip(gossipsub::Event::Message{ message, propagation_source, .. })) => {
                         update_received_heartbeat(&context, &message);
                         // tracing::debug!("propagation source: {:?}, {:?}", propagation_source,  message_id.to_string());
-                        metrics::counter!("recieved_messages", "sender"=> message.source.unwrap_or(propagation_source).to_string()).increment(1);
+                        metrics::counter!("received_messages", "sender"=> message.source.unwrap_or(propagation_source).to_string()).increment(1);
                         for app in &self.apps {
                             dispatch_messages(app, &mut context, &message);
                         }

@@ -10,7 +10,7 @@ use std::sync::Mutex;
 use lazy_static::lazy_static;
 
 use crate::apps::Context;
-use crate::config::BLOCK_TOLERENCE;
+use crate::config::BLOCK_TOLERANCE;
 use crate::helper::encoding::identifier_to_base64;
 use super::store::Store;
 use super::{gossip::HeartBeatMessage, now};
@@ -82,11 +82,11 @@ pub fn update_alive_table(self_identifier: &Identifier, alive: HeartBeatMessage)
     let mut table= AliveTable.lock().unwrap();
 
     if let Some(t) = table.get(&self_identifier) {
-        if alive.payload.block_height.abs_diff(t.clone()) > BLOCK_TOLERENCE { return }
+        if alive.payload.block_height.abs_diff(t.clone()) > BLOCK_TOLERANCE { return }
     }
 
     table.insert(alive.payload.identifier, alive.payload.block_height);
-    table.retain(|_, v| v.abs_diff(alive.payload.block_height) <= BLOCK_TOLERENCE);
+    table.retain(|_, v| v.abs_diff(alive.payload.block_height) <= BLOCK_TOLERANCE);
 
     // metrics::counter!("heart_beat", "moniker"=> get_moniker(&alive.payload.identifier), "version"=>alive.payload.v.unwrap_or("unknown".to_owned())).absolute(alive.payload.block_height);
     metrics::counter!("heart_beat", "moniker"=> get_moniker(&alive.payload.identifier), "version"=> alive.version.unwrap_or("unknown".to_owned())).absolute(alive.payload.block_height);

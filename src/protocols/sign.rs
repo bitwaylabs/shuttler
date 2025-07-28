@@ -16,7 +16,7 @@ use crate::{apps::{Context, FrostSignature, SideEvent, SignMode, Status, Subscri
 use ed25519_compact::{PublicKey, Signature};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SignMesage {
+pub struct SignMessage {
     pub task_id: String,
     pub package: SignPackage,
     pub sender: Identifier,
@@ -106,7 +106,7 @@ impl<H> StandardSigner<H> where H: SignAdaptor{
         ctx.nonce_store.save(&task.id, &nonces);
 
         // Publish commitments to other pariticipants
-        let mut msg =  SignMesage {
+        let mut msg =  SignMessage {
             task_id: task.id.clone(),
             package: SignPackage::Round1(commitments),
             sender: ctx.identifier.clone(),
@@ -132,7 +132,7 @@ impl<H> StandardSigner<H> where H: SignAdaptor{
         return Ok(())
     }
 
-    fn received_sign_message(&self, ctx: &mut Context, msg: SignMesage) {
+    fn received_sign_message(&self, ctx: &mut Context, msg: SignMessage) {
 
         // tracing:: debug!("Received: {:?}", msg);
         // Ensure the message is not forged.
@@ -329,7 +329,7 @@ impl<H> StandardSigner<H> where H: SignAdaptor{
             return;
         }
 
-        let mut msg = SignMesage {
+        let mut msg = SignMessage {
             task_id: task.id.clone(),
             package: SignPackage::Round2(broadcast_packages),
             sender: ctx.identifier.clone(),
@@ -448,10 +448,10 @@ impl<H> StandardSigner<H> where H: SignAdaptor{
 
     }
 
-    fn broadcast_signing_packages(&self, ctx: &mut Context, message: &mut SignMesage) {
+    fn broadcast_signing_packages(&self, ctx: &mut Context, message: &mut SignMessage) {
         let raw = serde_json::to_vec(&message.package).unwrap();
-        let signaure = ctx.node_key.sign(raw, None).to_vec();
-        message.signature = signaure;
+        let signature = ctx.node_key.sign(raw, None).to_vec();
+        message.signature = signature;
     
         tracing::debug!("Broadcasting: {:?}", message.task_id);
         let message = serde_json::to_vec(&message).expect("Failed to serialize Sign package");

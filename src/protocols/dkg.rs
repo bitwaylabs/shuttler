@@ -169,7 +169,7 @@ impl<H> DKG<H> where H: DKGAdaptor {
 
         let dkg_input = match &task.input {
             TaskInput::DKG(i) => i,
-            _ => return Err(DKGError("umatched input".to_string()))
+            _ => return Err(DKGError("unmatched input".to_string()))
         };
 
         if dkg_input.participants.contains(&ctx.identifier) == false {

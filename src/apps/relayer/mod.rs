@@ -39,7 +39,7 @@ impl Relayer {
         let ordinals_client = OrdinalsClient::new(&conf.ordinals.endpoint);
         let fee_provider_client = FeeProviderClient::new(&conf.fee_provider);
 
-        let db_relayer = sled::open(conf.get_database_with_name("relayer")).expect("Counld not create database!");
+        let db_relayer = sled::open(conf.get_database_with_name("relayer")).expect("Could not create database!");
         let ticker = tokio::time::interval(Duration::from_secs(conf.loop_interval as u64));
 
 
