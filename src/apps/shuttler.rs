@@ -253,8 +253,12 @@ impl<'a> Shuttler<'a> {
                     }
                 }
                 _ = ticker.tick() => {
-                    self.handle_missed_tss_signing_request(&mut context).await;
-                    self.handle_missed_bridge_signing_request(&mut context).await;
+                    if self.apps.iter().any(|a| {a.name() == APP_NAME_LENDING}) {
+                        self.handle_missed_tss_signing_request(&mut context).await;
+                    }
+                    if self.apps.iter().any(|a| {a.name() == APP_NAME_BRIDGE}) {
+                        self.handle_missed_bridge_signing_request(&mut context).await;
+                    }
                 }
                 swarm_event = context.swarm.select_next_some() => match swarm_event {
                     SwarmEvent::Behaviour(ShuttlerBehaviourEvent::Gossip(gossipsub::Event::Message{ message, propagation_source, .. })) => {
