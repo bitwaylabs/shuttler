@@ -297,10 +297,10 @@ impl RefreshAdaptor for RefreshHandler {
                             };
 
                             let removed_ids = removed.split(",").map(|k| pubkey_to_identifier(&from_base64(k).unwrap())).collect::<Vec<_>>();
-                            if removed_ids.contains(&ctx.identifier) {
-                                dkg_keys.iter().for_each(|k| {ctx.keystore.remove(k);} );
-                                continue;
-                            }
+                            // if removed_ids.contains(&ctx.identifier) {
+                            //     dkg_keys.iter().for_each(|k| {ctx.keystore.remove(k);} );
+                            //     continue;
+                            // }
 
                             let first_key = match dkg_keys.get(0) {
                                 Some(k) => k,
