@@ -9,7 +9,7 @@ use crate::helper::encoding::{from_base64, hash, pubkey_to_identifier};
 use crate::helper::mem_store;
 use crate::helper::store::Store;
 use crate::protocols::refresh::{ParticipantRefresher, RefreshAdaptor, RefreshInput};
-use crate::protocols::sign::{SignAdaptor, StandardSigner};
+use crate::protocols::sign::{self, SignAdaptor, StandardSigner};
 use crate::protocols::dkg::{DKGAdaptor, DKG};
 
 use crate::apps::{App, Context, FrostSignature, Input, SignMode, SubscribeMessage, Task};
@@ -183,18 +183,20 @@ impl SignAdaptor for SignerHandler {
                                 sign_mode = SignMode::SignWithTweak
                             };
     
-                            let participants = mem_store::count_task_participants(ctx, pub_key);
-                            if participants.len() > 0 {
-                                let mut sign_inputs = vec![];
-                                sig_hashes.split(",").enumerate().for_each(|(index, sig)| {
-                                    if let Ok(message) = from_base64(sig) {
-                                            sign_inputs.insert(index, Input::new_with_message_mode(pub_key.clone(), message, participants.clone(), sign_mode.clone()));
+                            if let Some(sign_key) = ctx.keystore.get(pub_key) {
+                                let participants = mem_store::count_task_participants(ctx, pub_key);
+                                if participants.len() >= sign_key.priv_key.min_signers().clone() as usize {
+                                    let mut sign_inputs = vec![];
+                                    sig_hashes.split(",").enumerate().for_each(|(index, sig)| {
+                                        if let Ok(message) = from_base64(sig) {
+                                                sign_inputs.insert(index, Input::new_with_message_mode(pub_key.clone(), message, participants.clone(), sign_mode.clone()));
+                                            }
                                         }
+                                    );
+                                    if sign_inputs.len() > 0 {
+                                        let task= Task::new_signing(format!("lending-{}", id), "" , sign_inputs);
+                                        tasks.push(task);
                                     }
-                                );
-                                if sign_inputs.len() > 0 {
-                                    let task= Task::new_signing(format!("lending-{}", id), "" , sign_inputs);
-                                    tasks.push(task);
                                 }
                             }
                         };
@@ -223,18 +225,20 @@ impl SignAdaptor for SignerHandler {
                         }
                     };
 
-                    let participants = mem_store::count_task_participants(ctx, &pub_key);
-                    if participants.len() > 0 {
-                        let mut sign_inputs = vec![];
-                        sig_hashes.split(",").enumerate().for_each(|(index, sig)| {
-                            if let Ok(message) = from_base64(sig) {
-                                    sign_inputs.insert(index, Input::new_with_message_mode(pub_key.clone(), message, participants.clone(), sign_mode.clone()));
+                    if let Some(sign_key) = ctx.keystore.get(&pub_key) {
+                        let participants = mem_store::count_task_participants(ctx, &pub_key);
+                        if participants.len() >= sign_key.priv_key.min_signers().clone() as usize {
+                            let mut sign_inputs = vec![];
+                            sig_hashes.split(",").enumerate().for_each(|(index, sig)| {
+                                if let Ok(message) = from_base64(sig) {
+                                        sign_inputs.insert(index, Input::new_with_message_mode(pub_key.clone(), message, participants.clone(), sign_mode.clone()));
+                                    }
                                 }
+                            );
+                            if sign_inputs.len() > 0 {
+                                let task= Task::new_signing(format!("lending-{}", id), "" , sign_inputs);
+                                tasks.push(task);
                             }
-                        );
-                        if sign_inputs.len() > 0 {
-                            let task= Task::new_signing(format!("lending-{}", id), "" , sign_inputs);
-                            tasks.push(task);
                         }
                     }
                 }
@@ -319,7 +323,7 @@ impl RefreshAdaptor for RefreshHandler {
                             let input = RefreshInput{
                                 id: task_id.clone(),
                                 keys: dkg_keys,
-                                threshold: first_key_pair.priv_key.min_signers().clone() - 1,
+                                threshold: first_key_pair.priv_key.min_signers().clone(),
                                 remove_participants: removed_ids,
                                 new_participants: participants,
                             };
