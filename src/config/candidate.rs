@@ -4,7 +4,7 @@ use frost_adaptor_signature::Identifier;
 use libp2p::PeerId;
 use tracing::{debug, warn};
 
-use crate::helper::{client_side, encoding::{from_base64, identifier_to_peer_id, pubkey_to_identifier}, mem_store, now};
+use crate::helper::{client_bitway, encoding::{from_base64, identifier_to_peer_id, pubkey_to_identifier}, mem_store, now};
 
 #[derive(Debug)]
 pub struct Candidate {
@@ -44,7 +44,7 @@ impl Candidate {
             return 
         }
 
-        let params = match client_side::get_tss_params(&self.host).await {
+        let params = match client_bitway::get_tss_params(&self.host).await {
             Ok(r) => r.into_inner().params.unwrap(),
             Err(e) => {
                 warn!("failed to sync valdiators: {:?}", e);

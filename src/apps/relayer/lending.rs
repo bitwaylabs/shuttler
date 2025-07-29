@@ -14,7 +14,7 @@ use crate::{
     apps::relayer::Relayer,
     helper::{
         bitcoin::{self as bitcoin_utils, get_signed_tx_from_psbt},
-        client_side::{
+        client_bitway::{
             self, get_liquidation, get_loan_dlc_meta, get_redemption, send_cosmos_transaction,
         },
         encoding::to_base64,
@@ -22,7 +22,7 @@ use crate::{
 };
 
 use cosmos_sdk_proto::{cosmos::tx::v1beta1::BroadcastTxResponse, Any};
-use side_proto::side::{lending::MsgSubmitDepositTransaction, liquidation::LiquidationStatus};
+use bitway_proto::bitway::{lending::MsgSubmitDepositTransaction, liquidation::LiquidationStatus};
 
 const EVENT_TYPE_APPLY: &str = "apply";
 const EVENT_ATTRIBUTE_KEY_VAULT: &str = "vault";
@@ -55,7 +55,7 @@ pub async fn scan_blocks_on_side(relayer: &Relayer) {
         let height = get_last_scanned_height_side(relayer) + 1;
 
         let latest_block_height =
-            match client_side::get_latest_block(&relayer.config.side_chain.rpc).await {
+            match client_bitway::get_latest_block(&relayer.config.bitway.rpc).await {
                 Ok(resp) => resp.block.header.height.value(),
                 Err(e) => {
                     error!("Failed to get the latest block: {}", e);
@@ -104,7 +104,7 @@ pub async fn scan_txs_on_bitcoin(relayer: &Relayer) {
         }
 
         let side_tip =
-            match client_side::get_bitcoin_tip_on_side(&relayer.config().side_chain.grpc).await {
+            match client_bitway::get_bitcoin_tip_on_side(&relayer.config().bitway.grpc).await {
                 Ok(res) => res.get_ref().height,
                 Err(e) => {
                     error!("Failed to get tip from side chain: {}", e);
@@ -115,7 +115,7 @@ pub async fn scan_txs_on_bitcoin(relayer: &Relayer) {
             };
 
         let confirmations =
-            client_side::get_confirmation_depth(&relayer.config().side_chain.grpc).await;
+            client_bitway::get_confirmation_depth(&relayer.config().bitway.grpc).await;
         if side_tip < confirmations || height > side_tip - confirmations + 1 {
             debug!(
                 "No new bitcoin txs to sync, height: {}, side tip: {}, sleep for {} seconds...",
@@ -144,7 +144,7 @@ pub async fn scan_side_blocks_by_range(relayer: &Relayer, start_height: u64, end
         debug!("Scanning side height: {}", current_height);
 
         let block_results_resp =
-            match client_side::get_block_results(&relayer.config.side_chain.rpc, current_height)
+            match client_bitway::get_block_results(&relayer.config.bitway.rpc, current_height)
                 .await
             {
                 Ok(resp) => resp,
@@ -408,7 +408,7 @@ pub async fn send_deposit_tx(
 }
 
 pub async fn handle_cet(relayer: &Relayer, loan_id: String, cet_type: String) {
-    let dlc_meta = match get_loan_dlc_meta(&relayer.config.side_chain.grpc, loan_id.clone()).await {
+    let dlc_meta = match get_loan_dlc_meta(&relayer.config.bitway.grpc, loan_id.clone()).await {
         Ok(resp) => match resp.into_inner().dlc_meta {
             Some(dlc_meta) => dlc_meta,
             None => {
@@ -456,7 +456,7 @@ pub async fn handle_cet(relayer: &Relayer, loan_id: String, cet_type: String) {
 }
 
 pub async fn handle_redemption_tx(relayer: &Relayer, id: u64) {
-    let redemption = match get_redemption(&relayer.config.side_chain.grpc, id).await {
+    let redemption = match get_redemption(&relayer.config.bitway.grpc, id).await {
         Ok(resp) => match resp.into_inner().redemption {
             Some(redemption) => redemption,
             None => {
@@ -492,7 +492,7 @@ pub async fn handle_redemption_tx(relayer: &Relayer, id: u64) {
 }
 
 pub async fn handle_liquidation_settlement_tx(relayer: &Relayer, liquidation_id: u64) {
-    let liquidation = match get_liquidation(&relayer.config.side_chain.grpc, liquidation_id).await {
+    let liquidation = match get_liquidation(&relayer.config.bitway.grpc, liquidation_id).await {
         Ok(resp) => match resp.into_inner().liquidation {
             Some(liquidation) => liquidation,
             None => {
@@ -590,9 +590,9 @@ fn save_last_scanned_height_bitcoin(relayer: &Relayer, height: u64) {
 pub(crate) fn get_last_scanned_height_side(relayer: &Relayer) -> u64 {
     match relayer.db_relayer.get(DB_KEY_SIDE_BLOCK_HEIGHT) {
         Ok(Some(tip)) => {
-            serde_json::from_slice(&tip).unwrap_or(relayer.config().last_scanned_height_side)
+            serde_json::from_slice(&tip).unwrap_or(relayer.config().last_scanned_height_bitway)
         }
-        _ => relayer.config().last_scanned_height_side,
+        _ => relayer.config().last_scanned_height_bitway,
     }
 }
 

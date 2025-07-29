@@ -2,7 +2,7 @@ use std::{collections::BTreeMap, fs};
 
 use cosmrs::Any;
 use serde::{Deserialize, Serialize};
-use side_proto::side::btcbridge::MsgCompleteDkg;
+use bitway_proto::bitway::btcbridge::MsgCompleteDkg;
 use tendermint::{abci::{Event, EventAttribute}, block::Height};
 
 use crate::{apps::SideEvent, mock::{fullpath, generate_mock_psbt}};

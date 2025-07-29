@@ -1,8 +1,8 @@
 use std::{collections::BTreeMap, fs};
 
 use cosmrs::Any;
-use side_proto::{prost::Message, 
-    side::{
+use bitway_proto::{prost::Message, 
+    bitway::{
         dlc::{DlcOracle, DlcOracleStatus}, 
         tss::{MsgCompleteDkg, MsgSubmitSignatures}},
     };

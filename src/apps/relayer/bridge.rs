@@ -16,18 +16,18 @@ use crate::{
     apps::relayer::Relayer,
     helper::{
         bitcoin::{self as bitcoin_utils},
-        client_side::{self, send_cosmos_transaction},
+        client_bitway::{self, send_cosmos_transaction},
         encoding::{from_base64, to_base64},
     },
 };
 
-use side_proto::side::btcbridge::{
+use bitway_proto::bitway::btcbridge::{
     MsgSubmitDepositTransaction, MsgSubmitFeeRate, MsgSubmitWithdrawTransaction,
     SigningStatus,
 };
-use side_proto::{
+use bitway_proto::{
     cosmos::base::query::v1beta1::PageRequest,
-    side::btcbridge::{
+    bitway::btcbridge::{
         query_client::QueryClient as BridgeQueryClient, QuerySigningRequestRequest,
         QuerySigningRequestsRequest,
     },
@@ -52,7 +52,7 @@ pub async fn start_relayer_tasks(relayer: &Relayer) {
 static SEQUENCE: LazyLock<AtomicU64> = LazyLock::new(|| AtomicU64::new(0));
 
 pub async fn sync_signed_transactions(relayer: &Relayer) {
-    let host = relayer.config().side_chain.grpc.as_str();
+    let host = relayer.config().bitway.grpc.as_str();
     let interval = relayer.config().loop_interval;
 
     loop {
@@ -188,7 +188,7 @@ pub async fn scan_vault_txs(relayer: &Relayer) {
         let height = get_last_scanned_height(relayer) + 1;
 
         let side_tip =
-            match client_side::get_bitcoin_tip_on_side(&relayer.config().side_chain.grpc).await {
+            match client_bitway::get_bitcoin_tip_on_side(&relayer.config().bitway.grpc).await {
                 Ok(res) => res.get_ref().height,
                 Err(e) => {
                     error!("Failed to get tip from side chain: {}", e);
@@ -197,7 +197,7 @@ pub async fn scan_vault_txs(relayer: &Relayer) {
             };
 
         let confirmations =
-            client_side::get_confirmation_depth(&relayer.config().side_chain.grpc).await;
+            client_bitway::get_confirmation_depth(&relayer.config().bitway.grpc).await;
         if height > side_tip - confirmations + 1 {
             debug!(
                 "No new txs to sync, height: {}, side tip: {}, sleep for {} seconds...",
@@ -579,7 +579,7 @@ async fn get_vaults(relayer: &Relayer) -> anyhow::Result<Vec<String>> {
         }
     }
 
-    match client_side::get_bridge_vaults(&relayer.config().side_chain.grpc).await {
+    match client_bitway::get_bridge_vaults(&relayer.config().bitway.grpc).await {
         Ok(vaults) => {
             if !vaults.is_empty() {
                 let _ = relayer

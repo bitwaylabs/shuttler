@@ -980,6 +980,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1b8e56985ec62d17e9c1001dc89c88ecd7dc08e47eba5ec7c29c7b5eeecde967"
 
 [[package]]
+name = "bitway-proto"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f0a4b11c53beaa815e2e0be1ed2c46178a1e6860c396223c8be9bd091b9f2d3c"
+dependencies = [
+ "cosmos-sdk-proto 0.27.0",
+ "cosmrs 0.22.0",
+ "prost",
+ "prost-types",
+ "tendermint-proto",
+ "tonic 0.12.3",
+]
+
+[[package]]
 name = "blake2"
 version = "0.10.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2265,9 +2279,9 @@ dependencies = [
 
 [[package]]
 name = "frost-adaptor-signature"
-version = "2.1.0-rc.3"
+version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7565a6077882b67c201bb443abb03d0fa25e1c21fc9b895240b19cb411cf4c48"
+checksum = "ed51b822884fd07f7beb547922cae7c0965f5bb50f6b3ce572c8c1ea6d599cfe"
 dependencies = [
  "frost-core",
  "frost-secp256k1-tr",
@@ -6598,7 +6612,7 @@ checksum = "0fda2ff0d084019ba4d7c6f371c95d8fd75ce3524c3cb8fb653a3023f6323e64"
 
 [[package]]
 name = "shuttler"
-version = "2.0.0-rc6"
+version = "2.0.0"
 dependencies = [
  "anyhow",
  "async-std",
@@ -6609,6 +6623,7 @@ dependencies = [
  "bip39",
  "bitcoin",
  "bitcoincore-rpc",
+ "bitway-proto",
  "chacha20poly1305",
  "chrono",
  "clap",
@@ -6643,7 +6658,6 @@ dependencies = [
  "serde_with 2.3.3",
  "sha2 0.10.9",
  "sha256",
- "side-proto",
  "sled",
  "tempfile",
  "tendermint",
@@ -6660,20 +6674,6 @@ dependencies = [
  "tracing-subscriber",
  "void",
  "websocket",
-]
-
-[[package]]
-name = "side-proto"
-version = "2.0.0-alpha.18"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "02b5a7f75b0a52b1d00350bc4d24a4bd8f35494f2b910c0d54e5d2cff9837e59"
-dependencies = [
- "cosmos-sdk-proto 0.27.0",
- "cosmrs 0.22.0",
- "prost",
- "prost-types",
- "tendermint-proto",
- "tonic 0.12.3",
 ]
 
 [[package]]

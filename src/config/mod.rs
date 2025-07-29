@@ -51,14 +51,14 @@ pub struct Config {
     pub priv_validator_key_path: String,
 
     pub bitcoin: BitcoinCfg,
-    pub side_chain: CosmosChain,
+    pub bitway: CosmosChain,
     
     pub ordinals: OrdinalsCfg,
     pub fee_provider: FeeProviderCfg,
 
     pub relay_runes: bool,
 
-    pub last_scanned_height_side: u64,
+    pub last_scanned_height_bitway: u64,
     pub last_scanned_height_bitcoin: u64,
 
     pub loop_interval: u64,
@@ -136,7 +136,7 @@ pub async fn get_relayer_account(conf: &Config) -> BaseAccount {
             return new_account;
         }
         None => {
-            let mut client = AuthQueryClient::connect(conf.side_chain.grpc.clone()).await.unwrap();
+            let mut client = AuthQueryClient::connect(conf.bitway.grpc.clone()).await.unwrap();
             let request = QueryAccountRequest {
                 // address: conf.signer_cosmos_address().to_string(),
                 address: conf.relayer_bitcoin_address()
@@ -243,7 +243,7 @@ impl Config {
                 user: "side".to_string(),
                 password: "12345678".to_string(),
             },
-            side_chain: CosmosChain {
+            bitway: CosmosChain {
                 grpc: "http://localhost:9090".to_string(),
                 rpc: "http://localhost:26657".to_owned(),
                 gas: 1000000,
@@ -261,7 +261,7 @@ impl Config {
             },
             relay_runes: false,
             // tweaks: BTreeMap::new(),
-            last_scanned_height_side: 0,
+            last_scanned_height_bitway: 0,
             last_scanned_height_bitcoin: 0,
             loop_interval: 60,
             batch_relayer_count: 10,
@@ -274,7 +274,7 @@ impl Config {
     }
 
     pub fn websocket_endpoint(&self) -> String {
-        format!("{}/websocket", self.side_chain.rpc.replace("http", "ws") )
+        format!("{}/websocket", self.bitway.rpc.replace("http", "ws") )
     }
 
     pub fn save(&self) -> Result<(), std::io::Error> {

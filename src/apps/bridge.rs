@@ -6,7 +6,7 @@ use bitcoin::{Network, TapNodeHash, XOnlyPublicKey};
 use bitcoincore_rpc::{Auth, Client};
 use frost_adaptor_signature::keys::{KeyPackage, PublicKeyPackage};
 
-use side_proto::side::btcbridge::{MsgCompleteDkg, MsgCompleteRefreshing, MsgSubmitSignatures};
+use bitway_proto::bitway::btcbridge::{MsgCompleteDkg, MsgCompleteRefreshing, MsgSubmitSignatures};
 
 use crate::apps::{App, Context, Input, SignMode, Status, SubscribeMessage, Task };
 use crate::config::{Config, VaultKeypair, APP_NAME_BRIDGE};

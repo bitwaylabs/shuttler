@@ -2,14 +2,14 @@
 
 use cosmrs::Any;
 use frost_adaptor_signature::VerifyingKey;
-use side_proto::side::tss::{MsgCompleteDkg, MsgCompleteRefreshing, MsgSubmitSignatures, SigningType};
+use bitway_proto::bitway::tss::{MsgCompleteDkg, MsgCompleteRefreshing, MsgSubmitSignatures, SigningType};
 
 use crate::config::{VaultKeypair, APP_NAME_LENDING};
 use crate::helper::encoding::{from_base64, hash, pubkey_to_identifier};
 use crate::helper::mem_store;
 use crate::helper::store::Store;
 use crate::protocols::refresh::{ParticipantRefresher, RefreshAdaptor, RefreshInput};
-use crate::protocols::sign::{self, SignAdaptor, StandardSigner};
+use crate::protocols::sign::{SignAdaptor, StandardSigner};
 use crate::protocols::dkg::{DKGAdaptor, DKG};
 
 use crate::apps::{App, Context, FrostSignature, Input, SignMode, SubscribeMessage, Task};

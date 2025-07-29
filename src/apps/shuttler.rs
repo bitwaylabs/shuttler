@@ -19,7 +19,7 @@ use crate::{
     },
     config::{candidate::Candidate, Config, APP_NAME_BRIDGE, APP_NAME_LENDING, TASK_INTERVAL},
     helper::{
-        client_side::{self, send_cosmos_transaction}, encoding::{from_base64, pubkey_to_identifier}, gossip::{sending_heart_beat, subscribe_gossip_topics, HeartBeatMessage, SubscribeTopic}, mem_store, store::Store
+        client_bitway::{self, send_cosmos_transaction}, encoding::{from_base64, pubkey_to_identifier}, gossip::{sending_heart_beat, subscribe_gossip_topics, HeartBeatMessage, SubscribeTopic}, mem_store, store::Store
     }, rpc::run_rpc_server,
 };
 
@@ -115,7 +115,7 @@ impl<'a> Shuttler<'a> {
         let conf = Config::from_file(home).unwrap();
 
         Self {
-            candidates: Candidate::new(conf.side_chain.grpc.clone(), &conf.bootstrap_nodes),
+            candidates: Candidate::new(conf.bitway.grpc.clone(), &conf.bootstrap_nodes),
             seed,
             apps: vec![],
         }
@@ -210,7 +210,7 @@ impl<'a> Shuttler<'a> {
             .with_reconnect_delay(Duration::from_secs(30))
             .with_max_reconnect_attempts(5000)
             .build();
-        if client.connect(format!("{}/websocket", conf.side_chain.rpc.replace("http", "ws"))).await.is_ok() {
+        if client.connect(format!("{}/websocket", conf.bitway.rpc.replace("http", "ws"))).await.is_ok() {
             tracing::info!("connected to websocket")
         };
 
@@ -404,7 +404,7 @@ impl<'a> Shuttler<'a> {
     async fn handle_missed_tss_signing_request(&self, ctx: &mut Context) {
 
         let mut tasks = vec![];
-        if let Ok(x) = client_side::get_tss_signing_requests(&ctx.conf.side_chain.grpc).await {
+        if let Ok(x) = client_bitway::get_tss_signing_requests(&ctx.conf.bitway.grpc).await {
             debug!("fetch incompleted tss signing tasks: {:?}", x.get_ref().requests.iter().map(|r| r.id).collect::<Vec<_>>());
             x.into_inner().requests.iter().for_each(|r| {
                 if ctx.task_store.exists(&format!("lending-{}", r.id)) {
@@ -419,12 +419,12 @@ impl<'a> Shuttler<'a> {
                 } else {
                     let mut sign_mode = SignMode::Sign;
                     match r.r#type() {
-                        side_proto::side::tss::SigningType::SchnorrWithCommitment => if let Some(o) = &r.options {
+                        bitway_proto::bitway::tss::SigningType::SchnorrWithCommitment => if let Some(o) = &r.options {
                             if let Some(comm) = ctx.keystore.get(&o.nonce) {
                                 sign_mode = SignMode::SignWithGroupcommitment(comm.pub_key.verifying_key().clone());
                             }
                         },
-                        side_proto::side::tss::SigningType::SchnorrAdaptor => if let Some(o) = &r.options {
+                        bitway_proto::bitway::tss::SigningType::SchnorrAdaptor => if let Some(o) = &r.options {
                             if let Ok(hex_adaptor) = hex::decode(&o.adaptor_point) {
                                 if let Ok(adaptor) = VerifyingKey::deserialize(&hex_adaptor) {
                                     // let mode = SignMode::SignWithAdaptorPoint(adaptor);    
@@ -432,7 +432,7 @@ impl<'a> Shuttler<'a> {
                                 }
                             }
                         },
-                        side_proto::side::tss::SigningType::SchnorrWithTweak => {  
+                        bitway_proto::bitway::tss::SigningType::SchnorrWithTweak => {  
                             sign_mode = SignMode::SignWithTweak
                         },
                         _ => {},
@@ -468,7 +468,7 @@ impl<'a> Shuttler<'a> {
     async fn handle_missed_bridge_signing_request(&self, ctx: &mut Context) {
 
         let mut tasks = vec![];
-        if let Ok(x) = client_side::get_bridge_pending_signing_requests(&ctx.conf.side_chain.grpc).await {
+        if let Ok(x) = client_bitway::get_bridge_pending_signing_requests(&ctx.conf.bitway.grpc).await {
             debug!("fetch incompleted bridge signing tasks: {:?}", x.get_ref().requests.iter().map(|r| r.txid.clone()).collect::<Vec<_>>());
             x.into_inner().requests.iter().for_each(|r| {
                 if ctx.task_store.exists(&r.txid) {

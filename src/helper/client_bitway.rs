@@ -14,7 +14,7 @@ use tendermint_rpc::{endpoint, Client, HttpClient};
 use tokio::sync::Mutex;
 use tonic::{Response, Status};
 
-use side_proto::side::{
+use bitway_proto::bitway::{
     oracle::{
         query_client::QueryClient as OracleQueryClient, QueryBlockHeaderByHeightRequest, QueryBlockHeaderByHeightResponse, QueryChainTipRequest, QueryChainTipResponse
     },
@@ -219,7 +219,7 @@ pub async fn get_bridge_signing_request_by_txid(host: &str, txid: String) -> Res
     }).await
 }
 
-pub async fn get_bridge_pending_signing_requests(host: &str) -> Result<Response<side_proto::side::btcbridge::QueryPendingSigningRequestsResponse>, Status> {
+pub async fn get_bridge_pending_signing_requests(host: &str) -> Result<Response<bitway_proto::bitway::btcbridge::QueryPendingSigningRequestsResponse>, Status> {
     let mut client = match BridgeQueryClient::connect(host.to_string()).await {
         Ok(client) => client,
         Err(e) => {
@@ -227,7 +227,7 @@ pub async fn get_bridge_pending_signing_requests(host: &str) -> Result<Response<
         }
     };
     
-    client.query_pending_signing_requests(side_proto::side::btcbridge::QueryPendingSigningRequestsRequest{pagination: None}).await
+    client.query_pending_signing_requests(bitway_proto::bitway::btcbridge::QueryPendingSigningRequestsRequest{pagination: None}).await
 }
 
 pub async fn get_tss_signing_requests(host: &str) -> Result<Response<QuerySigningRequestsResponse>, Status> {
@@ -336,7 +336,7 @@ pub async fn get_block_results(rpc: &str, height: u64) -> Result<endpoint::block
 pub async fn send_cosmos_transaction(identifier: &Identifier, conf: &config::Config, msg : Any) -> Result<tonic::Response<BroadcastTxResponse>, Status> {
     // let conf = shuttler.config();
 
-    if conf.side_chain.grpc.is_empty() {
+    if conf.bitway.grpc.is_empty() {
         return Err(Status::cancelled("GRPC URL is empty"));
         // return None;
     }
@@ -353,7 +353,7 @@ pub async fn send_cosmos_transaction(identifier: &Identifier, conf: &config::Con
     let _l = lock.lock().await;
     let base_account = config::get_relayer_account(conf).await;
     
-    let mut base_client = match TendermintServiceClient::connect(conf.side_chain.grpc.to_string()).await {
+    let mut base_client = match TendermintServiceClient::connect(conf.bitway.grpc.to_string()).await {
         Ok(client) => client,
         Err(e) => {
             return Err(Status::aborted(format!("Failed to create tendermint client: {}", e)));
@@ -371,8 +371,8 @@ pub async fn send_cosmos_transaction(identifier: &Identifier, conf: &config::Con
     let chain_id = resp_b.into_inner().block.unwrap().header.unwrap().chain_id.parse().unwrap();
     let account_number = base_account.account_number;
     let sequence_number = base_account.sequence;
-    let gas = conf.side_chain.gas;
-    let mut fee = Fee::from_amount_and_gas(Coin::new(conf.side_chain.fee.amount as u128, conf.side_chain.fee.denom.as_str()).unwrap(), gas as u64);
+    let gas = conf.bitway.gas;
+    let mut fee = Fee::from_amount_and_gas(Coin::new(conf.bitway.fee.amount as u128, conf.bitway.fee.denom.as_str()).unwrap(), gas as u64);
     fee.granter = Some(AccountId::from_str("side1yjepcvxl7fredrxxythv6nq3w9walel3ktpkrw").unwrap());
     let timeout_height = 0u16;
     let memo = format!("TSS signer: {}", mem_store::get_participant_moniker(identifier));
@@ -408,7 +408,7 @@ pub async fn send_cosmos_transaction(identifier: &Identifier, conf: &config::Con
     // Serialize the raw transaction as bytes (i.e. `Vec<u8>`).
     let tx_bytes = tx_signed.to_bytes().unwrap();
 
-    let mut tx_client = match TxServiceClient::connect(conf.side_chain.grpc.to_string()).await {
+    let mut tx_client = match TxServiceClient::connect(conf.bitway.grpc.to_string()).await {
         Ok(client) => client,
         Err(e) => {
             return Err(Status::aborted(format!("Failed to create tx client: {}", e)));
