@@ -15,7 +15,7 @@ use tracing::{debug, info, warn, error};
 
 use crate::{
     apps::{
-        App, Context, SubscribeMessage
+        lending::TASK_PREFIX_SIGN, App, Context, SubscribeMessage
     },
     config::{candidate::Candidate, Config, APP_NAME_BRIDGE, APP_NAME_LENDING, TASK_INTERVAL},
     helper::{
@@ -407,11 +407,11 @@ impl<'a> Shuttler<'a> {
         if let Ok(x) = client_bitway::get_tss_signing_requests(&ctx.conf.bitway.grpc).await {
             debug!("fetch incompleted tss signing tasks: {:?}", x.get_ref().requests.iter().map(|r| r.id).collect::<Vec<_>>());
             x.into_inner().requests.iter().for_each(|r| {
-                if ctx.task_store.exists(&format!("lending-{}", r.id)) {
+                if ctx.task_store.exists(&format!("{}{}", TASK_PREFIX_SIGN, r.id)) {
                     if let Some(create_time) = r.creation_time {
                         let create_time = create_time.seconds as u64;
                         if (crate::helper::now() - create_time) / TASK_INTERVAL % 2 == 1 {
-                            ctx.clean_task_cache(&format!("lending-{}", r.id));
+                            ctx.clean_task_cache(&format!("{}{}", TASK_PREFIX_SIGN, r.id));
                             return
                         }
                     }
