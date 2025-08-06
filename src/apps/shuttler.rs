@@ -387,8 +387,10 @@ impl<'a> Shuttler<'a> {
                     metrics::counter!("height").absolute(height);
                     sending_heart_beat(ctx, height);
                 }
+                let mut tx_events = vec![];
                 if let Some(finalize_block) = result_finalize_block {
-                    let e = crate::apps::SideEvent::TxEvent(finalize_block.events);
+                    finalize_block.tx_results.iter().for_each(|tx_result| tx_result.events.iter().for_each(|e| tx_events.push(e.clone())));
+                    let e = crate::apps::SideEvent::TxEvent(tx_events);
                     self.apps.iter().for_each(|a| a.on_event(ctx, &e ));
                 }
             },
