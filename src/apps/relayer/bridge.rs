@@ -3,7 +3,7 @@ use std::sync::{
     LazyLock,
 };
 
-use bitcoin::{consensus::encode, Address, Block, BlockHash, OutPoint, Psbt, Transaction, Txid};
+use bitcoin::{consensus::encode, network, Address, Block, BlockHash, OutPoint, Psbt, Transaction, Txid};
 use bitcoincore_rpc::RpcApi;
 use tokio::join;
 use tokio::time::{sleep, Duration};
@@ -358,7 +358,7 @@ pub async fn check_and_handle_tx(
     if bitcoin_utils::is_deposit_tx(tx, relayer.config().bitcoin.network, &vaults) {
         debug!("Deposit tx found... {:?}", &tx);
 
-        if bitcoin_utils::is_runes_deposit(tx) {
+        if bitcoin_utils::is_runes_deposit(tx, relayer.config().bitcoin.network, vaults[1].clone()) {
             if !relayer.config().relay_runes {
                 debug!("Skip the tx due to runes relaying not enabled");
                 return true;
@@ -408,7 +408,7 @@ pub async fn check_and_handle_tx(
             };
 
             // validate if the runes deposit is valid
-            if !bitcoin_utils::validate_runes(&edict, &rune, &output) {
+            if !bitcoin_utils::validate_runes(&edict, &rune, &output, vaults[1].clone()) {
                 debug!("Failed to validate runes deposit tx {}", tx.compute_txid());
 
                 // continue due to the deposit is invalid
