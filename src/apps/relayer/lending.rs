@@ -130,8 +130,9 @@ pub async fn scan_txs_on_bitcoin(relayer: &Relayer) {
             "Scanning bitcoin height: {:?}, side tip: {:?}",
             height, side_tip
         );
-        scan_bitcoin_txs_by_height(relayer, height).await;
-        save_last_scanned_height_bitcoin(relayer, height);
+        if scan_bitcoin_txs_by_height(relayer, height).await {
+            save_last_scanned_height_bitcoin(relayer, height);
+        }
     }
 }
 
@@ -274,12 +275,12 @@ async fn parse_and_handle_settlement_txs(
     }
 }
 
-pub async fn scan_bitcoin_txs_by_height(relayer: &Relayer, height: u64) {
+pub async fn scan_bitcoin_txs_by_height(relayer: &Relayer, height: u64) -> bool {
     let block_hash = match relayer.bitcoin_client.get_block_hash(height) {
         Ok(hash) => hash,
         Err(e) => {
             error!("Failed to get block hash: {:?}, err: {:?}", height, e);
-            return;
+            return false;
         }
     };
 
@@ -287,7 +288,7 @@ pub async fn scan_bitcoin_txs_by_height(relayer: &Relayer, height: u64) {
         Ok(block) => block,
         Err(e) => {
             error!("Failed to get block: {}, err: {}", height, e);
-            return;
+            return false;
         }
     };
 
@@ -299,7 +300,31 @@ pub async fn scan_bitcoin_txs_by_height(relayer: &Relayer, height: u64) {
             i
         );
 
-        check_and_handle_bitcoin_tx(relayer, &block_hash, &block, tx, i).await
+        check_and_handle_bitcoin_tx_with_retry(relayer, &block_hash, &block, tx, i).await
+    }
+
+    return true;
+}
+
+
+pub async fn check_and_handle_bitcoin_tx_with_retry(
+    relayer: &Relayer,
+    block_hash: &BlockHash,
+    block: &Block,
+    tx: &Transaction,
+    index: usize,
+) {
+    let mut attempts = 0;
+
+    loop {
+        if check_and_handle_bitcoin_tx(relayer, &block_hash, &block, tx, index).await {
+            return;
+        }
+
+        attempts += 1;
+        if attempts >= relayer.config.max_attempts {
+            return;
+        }
     }
 }
 
@@ -309,7 +334,7 @@ pub async fn check_and_handle_bitcoin_tx(
     block: &Block,
     tx: &Transaction,
     index: usize,
-) {
+) -> bool {
     if is_deposit_tx(relayer, tx, relayer.config().bitcoin.network) {
         let vault = get_vault(relayer, tx, relayer.config().bitcoin.network);
         debug!(
@@ -328,18 +353,20 @@ pub async fn check_and_handle_bitcoin_tx(
                 let tx_response = resp.into_inner().tx_response.unwrap();
                 if tx_response.code != 0 {
                     error!("Failed to submit deposit tx to side: {:?}", tx_response);
-                    return;
+                    return false;
                 }
 
                 info!("Submitted deposit tx to side: {:?}", tx_response);
+                return true;
             }
             Err(e) => {
                 error!("Failed to submit deposit tx to side: {:?}", e);
+                return false;
             }
         }
-
-        return;
     }
+
+    return true;
 }
 
 pub async fn check_and_handle_bitcoin_tx_by_hash(relayer: &Relayer, hash: &Txid) {
@@ -383,7 +410,7 @@ pub async fn check_and_handle_bitcoin_tx_by_hash(relayer: &Relayer, hash: &Txid)
         .position(|tx_in_block| tx_in_block == &tx)
         .expect("the tx should be included in the block");
 
-    check_and_handle_bitcoin_tx(relayer, &block_hash, &block, &tx, tx_index).await
+    check_and_handle_bitcoin_tx(relayer, &block_hash, &block, &tx, tx_index).await;
 }
 
 pub async fn send_deposit_tx(
