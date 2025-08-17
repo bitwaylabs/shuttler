@@ -174,16 +174,23 @@ pub fn may_be_withdraw_tx(tx: &Transaction) -> bool {
     tx.input[0].sequence.0 == MAGIC_SEQUENCE
 }
 
+
 // Check if the given deposit tx is for runes
-pub fn is_runes_deposit(tx: &Transaction) -> bool {
+pub fn is_runes_deposit(tx: &Transaction, network: Network, runes_vault: String) -> bool {
     let runes_identifier = vec![
         opcodes::all::OP_RETURN.to_u8(),
         opcodes::all::OP_PUSHNUM_13.to_u8(),
     ];
 
-    tx.output
+    if !tx
+        .output
         .iter()
         .any(|out| out.script_pubkey.as_bytes().starts_with(&runes_identifier))
+    {
+        return false;
+    }
+
+    is_deposit_tx(tx, network, &vec![runes_vault])
 }
 
 // Parse runes from the given tx
@@ -213,14 +220,22 @@ pub fn validate_runes(
     edict: &ordinals::Edict,
     rune: &SpacedRune,
     runes_output: &ord::api::Output,
+    runes_vault: String,
 ) -> bool {
-    runes_output.runes.as_ref().and_then(|runes| {
-        runes.get(rune).and_then(|r| Some(r.amount >= edict.amount))
-    }).unwrap_or(false)
-    // match runes_output.runes.get(rune) {
-    //     Some(rune) => rune.amount >= edict.amount,
-    //     None => false,
-    // }
+    match &runes_output.address {
+        Some(addr) => {
+            if addr.clone().assume_checked().to_string() != runes_vault {
+                return false;
+            }
+        }
+        None => return false,
+    };
+
+    runes_output
+        .runes
+        .as_ref()
+        .and_then(|runes| runes.get(rune))
+        .map_or(false, |r| r.amount >= edict.amount)
 }
 
 // Convert the given transaction to the v30 version
