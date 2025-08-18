@@ -4,7 +4,7 @@ use cosmrs::Any;
 use frost_adaptor_signature::VerifyingKey;
 use bitway_proto::bitway::tss::{MsgCompleteDkg, MsgCompleteRefreshing, MsgSubmitSignatures, SigningType};
 
-use crate::config::{VaultKeypair, APP_NAME_LENDING};
+use crate::config::{VaultKeypair, APP_NAME_LENDING, LENDING_KEY_REFRESH};
 use crate::helper::encoding::{from_base64, hash, pubkey_to_identifier};
 use crate::helper::mem_store;
 use crate::helper::store::Store;
@@ -115,17 +115,17 @@ impl DKGAdaptor for KeygenHander {
     }    
     fn on_complete(&self, ctx: &mut Context, task: &mut Task, keys: Vec<(frost_adaptor_signature::keys::KeyPackage,frost_adaptor_signature::keys::PublicKeyPackage)>) {
         let mut pub_keys = vec![];
-        keys.into_iter().for_each(|(priv_key, pub_key)| {
+        keys.iter().for_each(|(_priv_key, pub_key)| {
             
-            let tweak = None;
+            // let tweak = None;
             let rawkey = pub_key.verifying_key().serialize().unwrap();
             let hexkey = hex::encode(&rawkey[1..]);
-            let keyshare = VaultKeypair {
-                pub_key: pub_key.clone(),
-                priv_key: priv_key.clone(),
-                tweak,
-            };
-            ctx.keystore.save(&hexkey, &keyshare);
+            // let keyshare = VaultKeypair {
+            //     pub_key: pub_key.clone(),
+            //     priv_key: priv_key.clone(),
+            //     tweak,
+            // };
+            // ctx.keystore.save(&hexkey, &keyshare);
             pub_keys.push(hexkey);
         });
 
@@ -133,6 +133,8 @@ impl DKGAdaptor for KeygenHander {
 
         // save dkg id and keys for refresh
         ctx.general_store.save(&format!("{}", task.id).as_str(), &pub_keys.join(","));
+        // save keys for future replacement
+        ctx.general_store.save(&format!("{}-{}", LENDING_KEY_REFRESH, task.id).as_str(), &serde_json::to_string(&keys).unwrap());
         
         // convert string array to bytes
         let id: u64 = task.id.replace(TASK_PREFIX_KEYGEN, "").parse().unwrap();
@@ -331,9 +333,42 @@ impl RefreshAdaptor for RefreshHandler {
                                 remove_participants: removed_ids,
                                 new_participants: participants,
                             };
-                            tasks.push(Task::new_with_input(task_id, TaskInput::REFRESH(input), dkg_id));
+                            tasks.push(Task::new_with_input(task_id, TaskInput::REFRESH(input), ""));
                         };
                     return Some(tasks);
+                } else if events.contains_key("refreshing_completed.id") {
+                    for (id, _dkg_id) in events.get("refreshing_completed.id")?.iter()
+                        .zip(events.get("refreshing_completed.dkg_id")?) {
+
+                            let store_id = format!("{}-{}", LENDING_KEY_REFRESH, id);
+                            let backup = match ctx.general_store.get(&store_id.as_str()) {
+                                Some(r) => r,
+                                None => return None,
+                            };
+
+                            let keys = match serde_json::from_str::<Vec<(frost_adaptor_signature::keys::KeyPackage, frost_adaptor_signature::keys::PublicKeyPackage)>>(&backup) {
+                                Ok(k) => k,
+                                Err(e) => {
+                                    tracing::error!("unable to load refreshed keypairs: {}", e);
+                                    return None
+                                },
+                            };
+
+                            keys.into_iter().for_each(|(priv_key, pub_key)| {
+                                let rawkey = pub_key.verifying_key().serialize().unwrap();
+                                let hexkey = hex::encode(&rawkey[1..]);
+                                let keyshare = VaultKeypair {
+                                    pub_key: pub_key.clone(),
+                                    priv_key: priv_key.clone(),
+                                    tweak: None,
+                                };
+                                ctx.keystore.save(&hexkey, &keyshare);
+                            });
+
+                            ctx.general_store.remove(&store_id.as_str());
+                            ctx.clean_dkg_cache(id);
+
+                        }
                 }
             },
             SideEvent::TxEvent(_events) => {
@@ -345,19 +380,12 @@ impl RefreshAdaptor for RefreshHandler {
     fn on_complete(&self, ctx: &mut Context, task: &mut Task, keys: Vec<(frost_adaptor_signature::keys::KeyPackage, frost_adaptor_signature::keys::PublicKeyPackage)>) {
 
         if let Ok(id) = task.id.replace(TASK_PREFIX_REFRESH, "").parse::<u64>() {
+            
+            ctx.general_store.save(&format!("{}-{}", LENDING_KEY_REFRESH, task.id).as_str(), &serde_json::to_string(&keys).unwrap());
+
             let mut message_keys = id.to_be_bytes()[..].to_vec();
-            for (priv_key, key) in keys.iter() {
-                // let key_bytes = hex::decode(key).unwrap();
+            for (_priv_key, key) in keys.iter() {
                 let key_bytes = key.verifying_key().serialize().unwrap();
-                
-                let tweak = None;
-                let hexkey = hex::encode(&key_bytes[1..]);
-                let keyshare = VaultKeypair {
-                    pub_key: key.clone(),
-                    priv_key: priv_key.clone(),
-                    tweak,
-                };
-                ctx.keystore.save(&hexkey, &keyshare);
                 message_keys.extend(&key_bytes[1..]);
             };
             let message = hex::decode(hash(&message_keys)).unwrap();

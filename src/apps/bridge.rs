@@ -9,7 +9,7 @@ use frost_adaptor_signature::keys::{KeyPackage, PublicKeyPackage};
 use bitway_proto::bitway::btcbridge::{MsgCompleteDkg, MsgCompleteRefreshing, MsgSubmitSignatures};
 
 use crate::apps::{App, Context, Input, SignMode, Status, SubscribeMessage, Task };
-use crate::config::{Config, VaultKeypair, APP_NAME_BRIDGE};
+use crate::config::{Config, VaultKeypair, APP_NAME_BRIDGE, BRIDGE_KEY_REFRESH};
 use crate::helper::bitcoin::get_group_address_by_tweak;
 use crate::helper::encoding::{from_base64, hash, pubkey_to_identifier};
 
@@ -78,7 +78,7 @@ impl App for BridgeApp {
 
 pub struct KeygenHander{}
 impl DKGAdaptor for KeygenHander {
-    fn new_task(&self, _ctx: &mut Context, event: &SideEvent) -> Option<Vec<Task>> {
+    fn new_task(&self, ctx: &mut Context, event: &SideEvent) -> Option<Vec<Task>> {
         match event {
             SideEvent::BlockEvent(events) => {
                 if events.contains_key("initiate_dkg_bridge.id") {
@@ -322,14 +322,55 @@ impl RefreshAdaptor for RefreshHandler {
                             let task_id = format!("{}{}", TASK_PREFIX_REFRESH, id);
                             let input = RefreshInput{
                                 id: task_id.clone(),
-                                keys: vault_addrs,
+                                keys: vec![first_key.clone()], // only refresh the first one for all tweaked vault addresses
                                 threshold: first_key_pair.priv_key.min_signers().clone(),
                                 remove_participants: removed_ids,
                                 new_participants: participants,
                             };
-                            tasks.push(Task::new_with_input(task_id, TaskInput::REFRESH(input), dkg_id));
+                            tasks.push(Task::new_with_input(task_id, TaskInput::REFRESH(input), vault_addrs.join(",")));
                         };
                     return Some(tasks);
+                } else if events.contains_key("refreshing_completed_bridge.id") {
+                    for (id, dkg_id) in events.get("refreshing_completed_bridge.id")?.iter()
+                        .zip(events.get("refreshing_completed_bridge.dkg_id")?) {
+
+                            let store_id = format!("{}-{}", BRIDGE_KEY_REFRESH, id);
+                            let backup = match ctx.general_store.get(&store_id.as_str()) {
+                                Some(r) => r,
+                                None => return None,
+                            };
+
+                            let keys = match serde_json::from_str::<Vec<(frost_adaptor_signature::keys::KeyPackage, frost_adaptor_signature::keys::PublicKeyPackage)>>(&backup) {
+                                Ok(k) => k,
+                                Err(e) => {
+                                    error!("unable to load refreshed keypairs: {}", e);
+                                    return None
+                                },
+                            };
+
+                            if let Some(new_key) = keys.iter().next() {
+                                
+                                let vault_addrs = match ctx.general_store.get(&format!("{}{}", TASK_PREFIX_KEYGEN, dkg_id).as_str()) {
+                                    Some(k) => k.split(',').map(|t| t.to_owned()).collect::<Vec<_>>(),
+                                    None => {
+                                        error!("have not found original key for updated: {}", dkg_id);
+                                        return None;
+                                    },
+                                };
+
+                                vault_addrs.iter().for_each(|k| {
+                                    if let Some(vault) = ctx.keystore.get(k).as_mut() {
+                                        vault.priv_key = new_key.0.clone();
+                                        vault.pub_key = new_key.1.clone();
+                                        ctx.keystore.save(k, &vault);
+                                    };
+                                } );
+                            };
+
+                            ctx.general_store.remove(&store_id.as_str());
+                            ctx.clean_dkg_cache(id);
+
+                        }
                 }
             },
             SideEvent::TxEvent(_events) => {
@@ -346,25 +387,9 @@ impl RefreshAdaptor for RefreshHandler {
                 error!("have not received any refreshed key for task: {}", id);
                 return;
             }
-            
-            if let Some(new_key) = keys.iter().next() {
-                
-                let vault_addrs = match ctx.general_store.get(&format!("{}{}", TASK_PREFIX_KEYGEN, task.memo).as_str()) {
-                    Some(k) => k.split(',').map(|t| t.to_owned()).collect::<Vec<_>>(),
-                    None => {
-                        error!("have not found original key for updated: {}", task.memo);
-                        return
-                    },
-                };
 
-                vault_addrs.iter().for_each(|k| {
-                    if let Some(vault) = ctx.keystore.get(k).as_mut() {
-                        vault.priv_key = new_key.0.clone();
-                        vault.pub_key = new_key.1.clone();
-                        ctx.keystore.save(k, &vault);
-                    };
-                } );
-            };
+            // cache refreshed key for future replacement
+            ctx.general_store.save(&format!("{}-{}", BRIDGE_KEY_REFRESH, task.id).as_str(), &serde_json::to_string(&keys).unwrap());
             
             let message_keys = id.to_be_bytes()[..].to_vec();
 

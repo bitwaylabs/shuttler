@@ -283,6 +283,7 @@ impl Context {
     }
 
     pub fn clean_dkg_cache(&self, task_id: &String) {
+        self.task_store.remove(task_id);
         self.db_round1.remove(task_id);
         self.db_round2.remove(task_id);
         self.sec_round1.remove(task_id);

@@ -8,3 +8,6 @@ pub const BLOCK_TOLERANCE: u64 = 5;
 
 pub const APP_NAME_BRIDGE: &str = "bridge_app";
 pub const APP_NAME_LENDING: &str = "lending_app";
+
+pub const LENDING_KEY_REFRESH: &str = "key-refresh-lending";
+pub const BRIDGE_KEY_REFRESH: &str = "key-refresh-bridge";
