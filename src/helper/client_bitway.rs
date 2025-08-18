@@ -241,8 +241,8 @@ pub async fn get_tss_signing_requests(host: &str) -> Result<Response<QuerySignin
     };
 
     tss_client.signing_requests(QuerySigningRequestsRequest {
-        module: "".to_string(),
         status: SigningStatus::Pending as i32,
+        module: "".to_string(),
         pagination: None
     }).await
 }

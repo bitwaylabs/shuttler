@@ -56,7 +56,7 @@ tendermint = "0.40.1"
 tendermint-config = "0.40.1"
 tendermint-rpc = {version="0.40.1", features=["http-client", "websocket-client"]}
 frost-adaptor-signature = { version="2.1.0", features = ["serde", "serialization"]}
-bitway-proto = {version="2.0.0", features = ["grpc"]}
+bitway-proto = {version = "2.0.1", features = ["grpc"]}
 axum = "*"
 tower = "*"
 
