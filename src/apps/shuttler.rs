@@ -448,7 +448,7 @@ impl<'a> Shuttler<'a> {
                     });
                     if inputs.len() > 0 {
                         let task = Task::new_signing(
-                            format!("lending-{}", r.id),
+                            format!("{}{}", TASK_PREFIX_SIGN, r.id),
                             "",
                             inputs,
                         );
