@@ -99,7 +99,7 @@ impl DKGAdaptor for KeygenHander {
                             }
 
                             if let Ok(threshold) = t.parse() {
-                                if threshold as usize * 2 > participants.len()  {
+                                if threshold as usize * 2 >= participants.len()  {
                                     if let Ok(batch_size) = b.parse() {
                                         tasks.push(Task::new_dkg(format!("{}{}", TASK_PREFIX_KEYGEN, id), participants, threshold, batch_size));
                                     }

@@ -94,16 +94,17 @@ impl DKGAdaptor for KeygenHander {
                             for p in ps.split(",") {
                                 if let Ok(key_bytes) = from_base64(p) {
                                     let identifier = pubkey_to_identifier(&key_bytes);
-                                    if !live_peers.contains(&identifier) {
-                                        break;
-                                    }
                                     participants.push(identifier);
                                 }
                             };
+                            // check if all participants are live
+                            if participants.iter().any(|p| !live_peers.contains(p) ) {
+                                continue;
+                            }
                             if let Ok(size) = tks.parse::<i32>() {
                                 let tweaks = (0..size).collect();
                                 if let Ok(threshold) = t.parse() {
-                                    if threshold as usize * 2 >= participants.len() && participants.len() == ps.len() {
+                                    if threshold as usize * 2 >= participants.len() {
                                         tasks.push(Task::new_dkg_with_tweak(format!("{}{}", TASK_PREFIX_KEYGEN, id), participants, threshold,  tweaks));
                                     }
                                 }
@@ -297,10 +298,10 @@ impl RefreshAdaptor for RefreshHandler {
                             };
 
                             let removed_ids = removed.split(",").map(|k| pubkey_to_identifier(&from_base64(k).unwrap())).collect::<Vec<_>>();
-                            if removed_ids.contains(&ctx.identifier) {
-                                vault_addrs.iter().for_each(|k| {ctx.keystore.remove(k);} );
-                                continue;
-                            }
+                            // if removed_ids.contains(&ctx.identifier) {
+                            //     vault_addrs.iter().for_each(|k| {ctx.keystore.remove(k);} );
+                            //     continue;
+                            // }
 
                             let first_key = match vault_addrs.get(0) {
                                 Some(k) => k,
