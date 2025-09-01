@@ -373,7 +373,7 @@ pub async fn send_cosmos_transaction(identifier: &Identifier, conf: &config::Con
     let sequence_number = base_account.sequence;
     let gas = conf.bitway.gas;
     let mut fee = Fee::from_amount_and_gas(Coin::new(conf.bitway.fee.amount as u128, conf.bitway.fee.denom.as_str()).unwrap(), gas as u64);
-    fee.granter = Some(AccountId::from_str("side1yjepcvxl7fredrxxythv6nq3w9walel3ktpkrw").unwrap());
+    fee.granter = Some(AccountId::from_str("bitway18g72y0j5gxzgz9s3ntaffnzu2gcqgdg3auh4sq").unwrap());
     let timeout_height = 0u16;
     let memo = format!("TSS signer: {}", mem_store::get_participant_moniker(identifier));
 
