@@ -78,7 +78,7 @@ impl App for BridgeApp {
 
 pub struct KeygenHander{}
 impl DKGAdaptor for KeygenHander {
-    fn new_task(&self, ctx: &mut Context, event: &SideEvent) -> Option<Vec<Task>> {
+    fn new_task(&self, _ctx: &mut Context, event: &SideEvent) -> Option<Vec<Task>> {
         match event {
             SideEvent::BlockEvent(events) => {
                 if events.contains_key("initiate_dkg_bridge.id") {

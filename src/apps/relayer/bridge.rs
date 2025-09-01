@@ -3,7 +3,7 @@ use std::sync::{
     LazyLock,
 };
 
-use bitcoin::{consensus::encode, network, Address, Block, BlockHash, OutPoint, Psbt, Transaction, Txid};
+use bitcoin::{consensus::encode, Address, Block, BlockHash, OutPoint, Psbt, Transaction, Txid};
 use bitcoincore_rpc::RpcApi;
 use tokio::join;
 use tokio::time::{sleep, Duration};
