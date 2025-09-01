@@ -2271,9 +2271,9 @@ dependencies = [
 
 [[package]]
 name = "frost-adaptor-signature"
-version = "2.1.1"
+version = "2.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6300a49e9dfa0908166d6bd90891da874539f43ada1003979ba0126b7d5c9633"
+checksum = "9d289a10038a2e91d590d26aa334645c9fd3653fce95ae4994fda9ac1b987c9d"
 dependencies = [
  "frost-core",
  "frost-secp256k1-tr",
