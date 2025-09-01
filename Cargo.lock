@@ -973,9 +973,9 @@ checksum = "1b8e56985ec62d17e9c1001dc89c88ecd7dc08e47eba5ec7c29c7b5eeecde967"
 
 [[package]]
 name = "bitway-proto"
-version = "2.0.0"
+version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f0a4b11c53beaa815e2e0be1ed2c46178a1e6860c396223c8be9bd091b9f2d3c"
+checksum = "1fd967e98060e7e576555f2b7ada0da6c5a5ff44cf9391b3fa32b56276f3f65d"
 dependencies = [
  "cosmos-sdk-proto 0.27.0",
  "cosmrs 0.22.0",

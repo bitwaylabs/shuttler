@@ -109,7 +109,7 @@ impl<H> DKG<H> where H: DKGAdaptor {
             _ => return
         };
 
-        if dkg_input.participants.len() < 3 || !dkg_input.participants.contains(&ctx.identifier){
+        if !dkg_input.participants.contains(&ctx.identifier){
             return;
         }
 

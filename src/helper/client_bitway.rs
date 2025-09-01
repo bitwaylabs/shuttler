@@ -32,10 +32,12 @@ use bitway_proto::bitway::{
     },
 };
 
-
 use lazy_static::lazy_static;
 
 use crate::{config, helper::mem_store};
+
+// default bitcoin block confirmation depth relative to oracle
+const DEFAULT_CONFIRMATION_DEPTH: u64 = 1;
 
 lazy_static! {
     static ref lock: Mutex<()> = Mutex::new(());
@@ -134,14 +136,14 @@ pub async fn get_deposit_confirmation_depth(host: &str) -> u64 {
     let mut client = match BridgeQueryClient::connect(host.to_string()).await {
         Ok(client) => client,
         Err(_) => {
-            return 6 as u64;
+            return DEFAULT_CONFIRMATION_DEPTH;
         }
     };
 
     let res = match client.query_params(QueryParamsRequest{}).await {
         Ok(res) => res.into_inner(),
         Err(_) => {
-            return 6 as u64;
+            return DEFAULT_CONFIRMATION_DEPTH;
         }
     };
 
@@ -150,7 +152,7 @@ pub async fn get_deposit_confirmation_depth(host: &str) -> u64 {
             return params.deposit_confirmation_depth as u64;
         }
         None => {
-            return 6 as u64;
+            return DEFAULT_CONFIRMATION_DEPTH;
         }
     };
 }
@@ -159,14 +161,14 @@ pub async fn get_withdraw_confirmation_depth(host: &str) -> u64 {
     let mut client = match BridgeQueryClient::connect(host.to_string()).await {
         Ok(client) => client,
         Err(_) => {
-            return 6 as u64;
+            return DEFAULT_CONFIRMATION_DEPTH;
         }
     };
 
     let res = match client.query_params(QueryParamsRequest{}).await {
         Ok(res) => res.into_inner(),
         Err(_) => {
-            return 6 as u64;
+            return DEFAULT_CONFIRMATION_DEPTH;
         }
     };
 
@@ -175,7 +177,7 @@ pub async fn get_withdraw_confirmation_depth(host: &str) -> u64 {
             return params.withdraw_confirmation_depth as u64;
         }
         None => {
-            return 6 as u64;
+            return DEFAULT_CONFIRMATION_DEPTH;
         }
     };
 }
@@ -239,8 +241,8 @@ pub async fn get_tss_signing_requests(host: &str) -> Result<Response<QuerySignin
     };
 
     tss_client.signing_requests(QuerySigningRequestsRequest {
-        module: "".to_string(),
         status: SigningStatus::Pending as i32,
+        module: "".to_string(),
         pagination: None
     }).await
 }
