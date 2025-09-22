@@ -115,17 +115,17 @@ impl DKGAdaptor for KeygenHander {
     }    
     fn on_complete(&self, ctx: &mut Context, task: &mut Task, keys: Vec<(frost_adaptor_signature::keys::KeyPackage,frost_adaptor_signature::keys::PublicKeyPackage)>) {
         let mut pub_keys = vec![];
-        keys.iter().for_each(|(_priv_key, pub_key)| {
+        keys.iter().for_each(|(priv_key, pub_key)| {
             
-            // let tweak = None;
+            let tweak = None;
             let rawkey = pub_key.verifying_key().serialize().unwrap();
             let hexkey = hex::encode(&rawkey[1..]);
-            // let keyshare = VaultKeypair {
-            //     pub_key: pub_key.clone(),
-            //     priv_key: priv_key.clone(),
-            //     tweak,
-            // };
-            // ctx.keystore.save(&hexkey, &keyshare);
+            let keyshare = VaultKeypair {
+                pub_key: pub_key.clone(),
+                priv_key: priv_key.clone(),
+                tweak,
+            };
+            ctx.keystore.save(&hexkey, &keyshare);
             pub_keys.push(hexkey);
         });
 
