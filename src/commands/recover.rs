@@ -1,14 +1,13 @@
 use std::{collections::BTreeMap, fs, path::PathBuf, sync::Arc};
 
 use ed25519_compact::{x25519, SecretKey};
-use frost_adaptor_signature::Identifier;
 use tendermint_config::PrivValidatorKey;
 
 use crate::{
     apps::{
-        CommitmentStore, Round1SecretStore, Round1Store, Round2SecretStore, Round2Store, SignatureShareStore, SignerNonceStore, Task, TaskInput
+        Round1SecretStore, Round1Store, Round2SecretStore, Round2Store, Task, TaskInput
     }, 
-    config::VaultKeypair, helper::{cipher::decrypt, encoding::pubkey_to_identifier, store::{DefaultStore, Store}},
+    config::{Config, VaultKeypair}, helper::{cipher::decrypt, encoding::pubkey_to_identifier, store::{DefaultStore, Store}},
 };
 
 use frost_adaptor_signature as frost;
@@ -49,16 +48,17 @@ impl DataStore {
 pub fn load_validator_key(priv_validator_key_path: String) -> PrivValidatorKey {
     
     let priv_key_path = PathBuf::from(priv_validator_key_path.clone());
-
     let text = fs::read_to_string(priv_key_path.clone()).expect("priv_validator_key.json does not exists!");
-
     let prv_key = serde_json::from_str::<PrivValidatorKey>(text.as_str()).expect("Failed to parse priv_validator_key.json");
+
     prv_key    
 }
 
 pub async fn execute(data: String) {
 
-    let priv_validator_key = load_validator_key(format!("{}/priv_validator_key.json", data));
+    let contents = fs::read_to_string(format!("{}/config.toml", data) ).expect("Invalid Home Directory");
+    let config: Config = toml::from_str(&contents).expect("Failed to parse config file");
+    let priv_validator_key = load_validator_key(config.priv_validator_key_path);
 
     let mut b = priv_validator_key
         .priv_key
@@ -74,10 +74,8 @@ pub async fn execute(data: String) {
     let data_store = DataStore::new(data);
 
     for i in data_store.sec_round1.list() {
-        println!("entry: {:?}", String::from_utf8_lossy(&i.0));
+        println!("recover: {:?}", String::from_utf8_lossy(&i.0));
         let task_id = &String::from_utf8_lossy(&i.0).to_string();
-        println!("round1: {}", data_store.db_round1.exists(&task_id));
-        println!("round2: {}", data_store.db_round2.exists(&task_id));
 
         let task = data_store.task_store.get(&task_id).unwrap();
 
@@ -128,8 +126,7 @@ pub async fn execute(data: String) {
             } 
             match frost::keys::dkg::part3(&round2_secret_package, &ith_round1_packages, &round2_packages ) {
                 Ok((priv_key, pub_key)) => {
-                    println!("pubkey: {:?}", pub_key);
-                    println!("priv: {:?}", priv_key);
+                    println!("recovered: {:?}", pub_key);
                     // keys.push((priv_key, pub_key));
 
                     let rawkey = pub_key.verifying_key().serialize().unwrap();
