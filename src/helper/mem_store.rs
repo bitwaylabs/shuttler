@@ -116,7 +116,7 @@ pub fn is_peer_trusted_peer( ctx: &Context, identifier: &Identifier) -> bool {
     let mut table= TrustedPeers.lock().unwrap();
     if table.contains(identifier) {
         true
-    } else if ctx.keystore.list().iter().any(|a| a.pub_key.verifying_shares().contains_key(identifier)) {
+    } else if ctx.keystore.list().iter().any(|(_, a)| a.pub_key.verifying_shares().contains_key(identifier)) {
         table.push(identifier.clone());
         true
     } else {

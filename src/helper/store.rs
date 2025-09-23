@@ -1,11 +1,11 @@
-use std::{collections::BTreeMap, marker::PhantomData, path::Path};
+use std::{collections::BTreeMap, marker::PhantomData, ops::Deref, path::Path};
 
 use serde::{Deserialize, Serialize};
 use sled::Db;
 
 pub trait Store<K, V> where K: AsRef<[u8]>, V: Serialize + for<'a> Deserialize<'a> {
     fn save(&self, key: &K, value: &V) -> bool;
-    fn list(&self) -> Vec<V>;
+    fn list(&self) -> Vec<(Vec<u8>, V)>;
     fn remove(&self, key: &K) -> bool;
     fn get(&self, key: &K) -> Option<V>;
     fn exists(&self, key: &K) -> bool;
@@ -46,12 +46,12 @@ impl<K, V> Store<K, V> for SledStore<K, V> where K: AsRef<[u8]>, V: Serialize + 
             .is_ok()
     }
 
-    fn list(&self) -> Vec<V> {
+    fn list(&self) -> Vec<(Vec<u8>, V)> {
         self.inner
         .iter()
         .map(|r| {
-            let (_k, v) = r.unwrap();
-            serde_json::from_slice(&v).unwrap()
+            let (k, v) = r.unwrap();
+            (k.to_vec(), serde_json::from_slice(&v).unwrap())
         })
         .collect()
     }

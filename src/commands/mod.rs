@@ -51,6 +51,10 @@ pub enum Commands {
         #[clap(long, default_value = "bridge")]
         module: String
     },
+    Recover {
+        #[clap(long, default_value = "target/debug/shuttler")]
+        data: String,
+    }
 }
 
 pub mod init;
@@ -59,3 +63,4 @@ pub mod address;
 pub mod reset;
 pub mod submit_tx;
 pub mod test;
+pub mod recover;

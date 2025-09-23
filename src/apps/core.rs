@@ -203,16 +203,12 @@ impl Task {
     
 }
 type Index = usize;
-type CommitmentStore =
-    DefaultStore<String, BTreeMap<Index, BTreeMap<Identifier, round1::SigningCommitments>>>;
-type SignatureShareStore =
-    DefaultStore<String, BTreeMap<Index, BTreeMap<Identifier, round2::SignatureShare>>>;
-type SignerNonceStore = DefaultStore<String, BTreeMap<Index, round1::SigningNonces>>;
+pub type CommitmentStore = DefaultStore<String, BTreeMap<Index, BTreeMap<Identifier, round1::SigningCommitments>>>;
+pub type SignatureShareStore = DefaultStore<String, BTreeMap<Index, BTreeMap<Identifier, round2::SignatureShare>>>;
+pub type SignerNonceStore = DefaultStore<String, BTreeMap<Index, round1::SigningNonces>>;
 
-pub type Round1Store =
-    DefaultStore<String, BTreeMap<Identifier, Vec<frost_adaptor_signature::keys::dkg::round1::Package>>>;
+pub type Round1Store = DefaultStore<String, BTreeMap<Identifier, Vec<frost_adaptor_signature::keys::dkg::round1::Package>>>;
 pub type Round2Store = DefaultStore<String, BTreeMap<Identifier, Vec<Vec<u8>>>>;
-
 
 pub type Round1SecretStore = DefaultStore<String, Vec<frost_adaptor_signature::keys::dkg::round1::SecretPackage>>;
 pub type Round2SecretStore = DefaultStore<String, Vec<frost_adaptor_signature::keys::dkg::round2::SecretPackage>>;
