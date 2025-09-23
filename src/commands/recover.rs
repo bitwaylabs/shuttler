@@ -135,7 +135,8 @@ pub async fn execute(data: String) {
             } 
             match frost::keys::dkg::part3(&round2_secret_package, &ith_round1_packages, &round2_packages ) {
                 Ok((priv_key, pub_key)) => {
-                    println!("recovered: {:?}", pub_key);
+
+                    println!("recovered: {:?}", pub_key.verifying_key());
                     // keys.push((priv_key, pub_key));
 
                     let rawkey = pub_key.verifying_key().serialize().unwrap();
