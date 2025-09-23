@@ -77,7 +77,10 @@ pub async fn execute(data: String) {
         println!("recover: {:?}", String::from_utf8_lossy(&i.0));
         let task_id = &String::from_utf8_lossy(&i.0).to_string();
 
-        let task = data_store.task_store.get(&task_id).unwrap();
+        let task = match data_store.task_store.get(&task_id) {
+            Some(t) => t,
+            None => continue,
+        };
 
         let dkg_input = match &task.input {
             TaskInput::DKG(i) => i,
@@ -86,7 +89,10 @@ pub async fn execute(data: String) {
         // initialize a batch of empty BTreeMap.
         let mut batch = (0..dkg_input.batch_size).map(|_i| BTreeMap::new() ).collect::<Vec<_>>();
         
-        let received = data_store.db_round2.get(&task_id).unwrap();
+        let received = match data_store.db_round2.get(&task_id) {
+            Some(d) => d,
+            None => continue,
+        };
         // let mut round2_packages = BTreeMap::new();
         received.iter().filter(|(k, _)| *k != &identifier ).for_each(|(sender, packet)| {
             
@@ -106,11 +112,14 @@ pub async fn execute(data: String) {
         let round2_secret_package = match data_store.sec_round2.get(task_id) {
             Some(secret_package) => secret_package,
             None => {
-                return;
+                continue;
             }
         };
 
-        let mut round1_packages = data_store.db_round1.get(task_id).unwrap_or(BTreeMap::new());
+        let mut round1_packages = match data_store.db_round1.get(task_id) {
+            Some(d) => d,
+            None => continue,
+        };
 
         // frost does not need its own package to compute the threshold key
         round1_packages.remove(&identifier);
