@@ -73,7 +73,6 @@ pub async fn execute(data: String) {
 
     let data_store = DataStore::new(data);
 
-
     for i in data_store.sec_round1.list() {
         println!("entry: {:?}", String::from_utf8_lossy(&i.0));
         let task_id = &String::from_utf8_lossy(&i.0).to_string();
@@ -118,7 +117,7 @@ pub async fn execute(data: String) {
         // frost does not need its own package to compute the threshold key
         round1_packages.remove(&identifier);
 
-        let mut keys = vec![];
+        // let mut keys = vec![];
         batch.iter().zip(round2_secret_package).enumerate().for_each(|(i, (round2_packages,round2_secret_package ))| {
             // extract the ith round1 package
             let mut ith_round1_packages = BTreeMap::new();
@@ -131,7 +130,16 @@ pub async fn execute(data: String) {
                 Ok((priv_key, pub_key)) => {
                     println!("pubkey: {:?}", pub_key);
                     println!("priv: {:?}", priv_key);
-                    keys.push((priv_key, pub_key));
+                    // keys.push((priv_key, pub_key));
+
+                    let rawkey = pub_key.verifying_key().serialize().unwrap();
+                    let hexkey = hex::encode(&rawkey[1..]);
+                    let keyshare = VaultKeypair {
+                        pub_key: pub_key.clone(),
+                        priv_key: priv_key.clone(),
+                        tweak: None,
+                    };
+                    data_store.keystore.save(&hexkey, &keyshare);
                 },
                 Err(e) => {
                     println!("dkg failure: {}", e)
