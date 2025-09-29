@@ -10,7 +10,7 @@ pub use tracing::error;
 use usize as Index;
 use crate::{apps::{Context, FrostSignature, SideEvent, SignMode, Status, SubscribeMessage, Task, TaskInput}, config::VaultKeypair, 
     helper::{
-        bitcoin::convert_tweak, gossip::publish_topic_message, mem_store, store::Store
+        bitcoin::convert_tweak, gossip::publish_topic_message, mem_store, now, store::Store
 }};
 
 use ed25519_compact::{PublicKey, Signature};
@@ -21,6 +21,8 @@ pub struct SignMessage {
     pub package: SignPackage,
     pub sender: Identifier,
     pub signature: Vec<u8>,
+    #[serde(skip_deserializing)]
+    pub timestamp: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -110,7 +112,8 @@ impl<H> StandardSigner<H> where H: SignAdaptor{
             task_id: task.id.clone(),
             package: SignPackage::Round1(commitments),
             sender: ctx.identifier.clone(),
-            signature: vec![], 
+            signature: vec![],
+            timestamp: now(),
         };
 
         self.broadcast_signing_packages(ctx, &mut msg);
@@ -334,6 +337,7 @@ impl<H> StandardSigner<H> where H: SignAdaptor{
             package: SignPackage::Round2(broadcast_packages),
             sender: ctx.identifier.clone(),
             signature: vec![],
+            timestamp: now(),
         };
 
         self.broadcast_signing_packages(ctx, &mut msg);
