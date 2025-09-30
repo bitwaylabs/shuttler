@@ -270,6 +270,8 @@ impl<H> StandardSigner<H> where H: SignAdaptor{
                 
                     debug!("Commitments {} {}/{}", &task.id, received, participants.len());
 
+                    debug!("expected: {:?}", participants.iter().filter(|i| {!signing_commitments.contains_key(i)}));
+
                     if received != keypair.pub_key.verifying_shares().len() && received != participants.len() {
                         return
                     }
@@ -401,6 +403,8 @@ impl<H> StandardSigner<H> where H: SignAdaptor{
             if input.participants.len() >= threshold {
                 signing_commitments.retain(|k, _| {input.participants.contains(k)});
             }
+
+            debug!("Expected: {:?}", input.participants.iter().filter(|i| !signature_shares.contains_key(i)));
 
             if signature_shares.len() < threshold || signature_shares.len() < signing_commitments.len() {
                 return
