@@ -400,8 +400,9 @@ impl<H> StandardSigner<H> where H: SignAdaptor{
             };
             let threshold = keypair.priv_key.min_signers().clone() as usize;
 
-            if input.participants.len() >= threshold {
+            if signature_shares.len() >= threshold {
                 signing_commitments.retain(|k, _| {input.participants.contains(k)});
+                signature_shares.retain(|k, _| {input.participants.contains(k)});
             }
 
             if signature_shares.len() >= threshold {
@@ -415,8 +416,6 @@ impl<H> StandardSigner<H> where H: SignAdaptor{
             if index == 0 {
                 debug!("Signature share {} {}/{}", &task_id, signature_shares.len(), signing_commitments.len() )
             }
-
-            // signature_shares.retain(|k, _| {signing_commitments.contains_key(k)});
             
             let signing_package = SigningPackage::new(
                 signing_commitments,
