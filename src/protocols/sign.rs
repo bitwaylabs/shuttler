@@ -404,7 +404,9 @@ impl<H> StandardSigner<H> where H: SignAdaptor{
                 signing_commitments.retain(|k, _| {input.participants.contains(k)});
             }
 
-            debug!("Expected: {:?}", input.participants.iter().filter(|i| !signature_shares.contains_key(i)));
+            if signature_shares.len() >= threshold {
+                debug!("Expected: {:?}", input.participants.iter().filter(|i| !signature_shares.contains_key(i)).map(|i| mem_store::get_moniker(i)));
+            }
 
             if signature_shares.len() < threshold || signature_shares.len() < signing_commitments.len() {
                 return
@@ -414,7 +416,7 @@ impl<H> StandardSigner<H> where H: SignAdaptor{
                 debug!("Signature share {} {}/{}", &task_id, signature_shares.len(), signing_commitments.len() )
             }
 
-            signature_shares.retain(|k, _| {signing_commitments.contains_key(k)});
+            // signature_shares.retain(|k, _| {signing_commitments.contains_key(k)});
             
             let signing_package = SigningPackage::new(
                 signing_commitments,
