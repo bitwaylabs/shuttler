@@ -406,7 +406,7 @@ impl<H> StandardSigner<H> where H: SignAdaptor{
             }
 
             if signature_shares.len() >= threshold {
-                debug!("Expected: {:?}", input.participants.iter().filter(|i| !signature_shares.contains_key(i)).map(|i| mem_store::get_moniker(i)).collect::<Vec<_>>());
+                debug!("Expected share: {:?}", input.participants.iter().filter(|i| !signature_shares.contains_key(i)).map(|i| mem_store::get_moniker(i)).collect::<Vec<_>>());
             }
 
             if signature_shares.len() < threshold || signature_shares.len() < signing_commitments.len() {
