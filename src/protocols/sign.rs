@@ -270,7 +270,7 @@ impl<H> StandardSigner<H> where H: SignAdaptor{
                 
                     debug!("Commitments {} {}/{}", &task.id, received, participants.len());
 
-                    debug!("expected: {:?}", participants.iter().filter(|i| {!signing_commitments.contains_key(i)}));
+                    debug!("expected: {:?}", participants.iter().filter(|i| {!signing_commitments.contains_key(i)}).map(|i| {mem_store::get_moniker(i)}));
 
                     if received != keypair.pub_key.verifying_shares().len() && received != participants.len() {
                         return
