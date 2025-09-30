@@ -270,7 +270,9 @@ impl<H> StandardSigner<H> where H: SignAdaptor{
                 
                     debug!("Commitments {} {}/{}", &task.id, received, participants.len());
 
-                    debug!("Expected: {:?}", participants.iter().filter(|i| !signing_commitments.contains_key(i)).map(|i| mem_store::get_moniker(i)).collect::<Vec<_>>());
+                    if task_id.starts_with("lending") {
+                        debug!("Expected c: {:?}", participants.iter().filter(|i| !signing_commitments.contains_key(i)).map(|i| mem_store::get_moniker(i)).collect::<Vec<_>>());
+                    }
 
                     if received != keypair.pub_key.verifying_shares().len() && received != participants.len() {
                         return
@@ -405,7 +407,7 @@ impl<H> StandardSigner<H> where H: SignAdaptor{
                 signature_shares.retain(|k, _| {input.participants.contains(k)});
             }
 
-            if signature_shares.len() >= threshold {
+            if signature_shares.len() >= threshold && task_id.starts_with("lending") {
                 debug!("Expected share: {:?}", input.participants.iter().filter(|i| !signature_shares.contains_key(i)).map(|i| mem_store::get_moniker(i)).collect::<Vec<_>>());
             }
 
