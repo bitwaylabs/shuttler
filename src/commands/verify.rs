@@ -1,3 +1,4 @@
+
 use crate::{config::{Config, VaultKeypair}, helper::store::{DefaultStore, Store}};
 
 
@@ -11,7 +12,8 @@ pub async fn execute(home: &str, store_key: String, pubkey: String) {
 
     let local_pubkey = keypair.pub_key.verifying_key().serialize().expect("Serialize failure");
 
-    println!("local pubkey: {:?} =? {:?}", hex::encode(local_pubkey), pubkey)
+    println!("local pubkey: {:?} =? {:?}", hex::encode(local_pubkey), pubkey);
 
+    println!("public verify share {:?}",  keypair.pub_key.verifying_shares());
     
 }
