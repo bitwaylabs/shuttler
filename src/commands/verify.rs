@@ -11,7 +11,7 @@ pub async fn execute(home: &str, store_key: String, pubkey: String) {
 
     let local_pubkey = keypair.pub_key.verifying_key().serialize().expect("Serialize failure");
 
-    println!("pubkey: {:?}, {:?}", local_pubkey, pubkey);
+    println!("local pubkey: {:?} =? {:?}", hex::encode(local_pubkey), pubkey)
 
     
 }
