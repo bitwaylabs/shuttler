@@ -1,6 +1,6 @@
 use clap::Parser;
 use shuttler::commands::{
-    address, init, reset, start, test,
+    address, init, reset, start, test, verify,
     submit_tx, Cli, Commands};
 
 #[tokio::main(flavor = "multi_thread")]
@@ -25,6 +25,9 @@ async fn main() {
         }
         Commands::Test {bin, n, tx, delay, module} => {
             test::execute(bin.clone().leak(), n, tx, delay, module).await;
+        }
+        Commands::Verify { store_key, pubkey } => {
+            verify::execute(&cli.home, store_key, pubkey).await;
         }
     }
 }
