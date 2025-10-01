@@ -51,6 +51,12 @@ pub enum Commands {
         #[clap(long, default_value = "bridge")]
         module: String
     },
+    Verify {
+        #[clap(long)]
+        store_key: String,
+        #[clap(long)]
+        pubkey: String,
+    }
 }
 
 pub mod init;
@@ -59,3 +65,4 @@ pub mod address;
 pub mod reset;
 pub mod submit_tx;
 pub mod test;
+pub mod verify;
