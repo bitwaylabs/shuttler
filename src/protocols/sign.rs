@@ -270,10 +270,6 @@ impl<H> StandardSigner<H> where H: SignAdaptor{
                 
                     debug!("Commitments {} {}/{}", &task.id, received, participants.len());
 
-                    if task_id.starts_with("lending") {
-                        debug!("Expected c: {:?}", participants.iter().filter(|i| !signing_commitments.contains_key(i)).map(|i| mem_store::get_moniker(i)).collect::<Vec<_>>());
-                    }
-
                     if received != keypair.pub_key.verifying_shares().len() && received != participants.len() {
                         return
                     }
@@ -400,15 +396,12 @@ impl<H> StandardSigner<H> where H: SignAdaptor{
                 Some(e) => e.clone(),
                 None => return
             };
+            
             let threshold = keypair.priv_key.min_signers().clone() as usize;
 
             if signature_shares.len() >= threshold {
                 signing_commitments.retain(|k, _| {input.participants.contains(k)});
                 signature_shares.retain(|k, _| {input.participants.contains(k)});
-            }
-
-            if signature_shares.len() >= threshold && task_id.starts_with("lending") {
-                debug!("Expected share: {:?}", input.participants.iter().filter(|i| !signature_shares.contains_key(i)).map(|i| mem_store::get_moniker(i)).collect::<Vec<_>>());
             }
 
             if signature_shares.len() < threshold || signature_shares.len() < signing_commitments.len() {
