@@ -28,7 +28,7 @@ pub struct SignMessage {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SignPackage {
     Commitment(BTreeMap<Index,BTreeMap<Identifier,round1::SigningCommitments>>,),
-    Commitments(BTreeMap<Index, BTreeMap<Identifier, round1::SigningCommitments>>),
+    Snapshot(BTreeMap<Index, BTreeMap<Identifier, round1::SigningCommitments>>),
     SignatureShare(BTreeMap<Index,BTreeMap<Identifier,round2::SignatureShare>>),
 }
 
@@ -187,7 +187,7 @@ impl<H> StandardSigner<H> where H: SignAdaptor{
                 self.coordinate_commitments(ctx, &msg, &signing_key, &remote_commitments);
 
             },
-            SignPackage::Commitments(commitments) => {
+            SignPackage::Snapshot(commitments) => {
                 self.generate_signature_shares(ctx,  &msg, &signing_key, commitments);
             },
             SignPackage::SignatureShare(sig_shares) => {
@@ -235,7 +235,7 @@ impl<H> StandardSigner<H> where H: SignAdaptor{
 
         let mut msg = SignMessage {
             task_id: msg.task_id.clone(),
-            package: SignPackage::Commitments(stored_remote_commitments.to_owned()),
+            package: SignPackage::Snapshot(stored_remote_commitments.to_owned()),
             sender: ctx.identifier.clone(),
             signature: vec![],
             key: msg.key.clone(),
