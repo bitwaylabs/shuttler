@@ -165,8 +165,6 @@ pub struct SignerHandler{}
 impl SignAdaptor for SignerHandler {
     fn new_task(&self, ctx: &mut Context, event: &SideEvent) -> Option<Vec<Task>> {
 
-        println!("new event: {:?}", event);
-        
         match event {
             SideEvent::BlockEvent( events) => {
                 if events.contains_key("initiate_signing.id") {
