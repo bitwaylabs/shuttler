@@ -125,7 +125,6 @@ impl<H> ParticipantRefresher<H> where H: RefreshAdaptor {
                 refresh_input.new_participants.len() as u16,
                 refresh_input.threshold,
             ) {
-                debug!("round1_secret_package: {:?} {}", task.id, _k );
                 packages.push(round1_package);
                 secrets.push(secret_packet);
             } else {
