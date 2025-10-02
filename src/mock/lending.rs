@@ -28,7 +28,7 @@ pub fn lending_task_queue() -> EventQueue {
 pub fn handle_lending_dkg_submission(home: &str, m: &Any) {
     if let Ok(msg) = m.to_msg::<MsgCompleteDkg>() {
         let key = fullpath(home, &msg.pub_keys[0]);
-        println!("Received: {:?} from {}", msg.pub_keys, msg.sender);
+        println!("Received: {:?} keys from {}", msg.pub_keys.len(), msg.sender);
         
         if fs::exists(&key).unwrap_or(false) {
             return

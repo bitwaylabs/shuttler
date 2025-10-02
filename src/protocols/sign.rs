@@ -32,6 +32,16 @@ pub enum SignPackage {
     SignatureShare(BTreeMap<Index,BTreeMap<Identifier,round2::SignatureShare>>),
 }
 
+impl SignPackage {
+    fn to_name(&self) -> &'static str {
+        match &self {
+            SignPackage::Commitment(_) => "Commitment",
+            SignPackage::Snapshot(_) => "Comitment Snapshot",
+            SignPackage::SignatureShare(_) => "Signature Share",
+        }
+    }
+}
+
 pub trait SignAdaptor {
     fn new_task(&self, ctx: &mut Context, events: &SideEvent) -> Option<Vec<Task>>;
     fn on_complete(&self, ctx: &mut Context, task: &mut Task) -> anyhow::Result<()>;
@@ -217,7 +227,6 @@ impl<H> StandardSigner<H> where H: SignAdaptor{
     fn coordinate_commitments(&self,ctx: &mut Context, msg: &SignMessage, signing_key: &VaultKeypair, stored_remote_commitments: &BTreeMap<Index, BTreeMap<Identifier, round1::SigningCommitments>>) {
 
         let coordinator = select_coordinator(&signing_key.pub_key.verifying_shares().keys().collect::<Vec<_>>(), msg.create_time);
-        debug!("coordinator: {}/{:?}", msg.task_id, coordinator);
         if ctx.identifier != coordinator {
             return
         }
@@ -227,7 +236,6 @@ impl<H> StandardSigner<H> where H: SignAdaptor{
             None => return
         };
 
-        debug!("received commitment: {:?}", signing_commitments.len());
         // Only check the first one, because all inputs are in the same package
         if signing_commitments.len() != *signing_key.priv_key.min_signers() as usize {
             return
@@ -426,7 +434,7 @@ impl<H> StandardSigner<H> where H: SignAdaptor{
         let output  = verifies.iter().enumerate()
                             .map(|(i, v)| format!("{i}:{}", if *v {"✔"} else {"✘"}))
                             .collect::<Vec<_>>().join(" ");
-        info!("Verify {}: {}", &task.id[..6], output );
+        info!("Verify {}: {}", &task.id, output );
 
         task.status = Status::Complete;
         task.input = TaskInput::SIGN(sign_inputs);
@@ -446,7 +454,7 @@ impl<H> StandardSigner<H> where H: SignAdaptor{
         let signature = ctx.node_key.sign(raw, None).to_vec();
         message.signature = signature;
     
-        tracing::debug!("Broadcasting: {:?}", message.task_id);
+        tracing::info!("Broadcast {}: {:?}", message.package.to_name(), message.task_id);
         let message = serde_json::to_vec(&message).expect("Failed to serialize Sign package");
         publish_topic_message(ctx, self.topic(), message);
     }
