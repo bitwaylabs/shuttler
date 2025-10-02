@@ -85,7 +85,7 @@ fn initial_swarm(keybyte: impl AsMut<[u8]>) -> Swarm<ShuttlerBehaviour> {
 
             let identify = identify::Behaviour::new(
                 identify::Config::new(
-                    "/shuttler/id/1.0.0".to_string(),
+                    "/shuttler/2.0.0".to_string(),
                     key.public().clone(),
                 )
                 .with_push_listen_addr_updates(true),
