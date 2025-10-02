@@ -415,6 +415,7 @@ impl<'a> Shuttler<'a> {
                 };
                 if ctx.task_store.exists(&format!("{}{}", TASK_PREFIX_SIGN, r.id)) {
                     if (crate::helper::now() - create_time) / TASK_INTERVAL % 2 == 1 {
+                        debug!("Clean tasks variables for task: {}{:?}", TASK_PREFIX_SIGN, r.id);
                         ctx.clean_task_cache(&format!("{}{}", TASK_PREFIX_SIGN, r.id));
                         return
                     }

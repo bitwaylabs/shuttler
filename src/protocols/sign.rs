@@ -217,6 +217,7 @@ impl<H> StandardSigner<H> where H: SignAdaptor{
     fn coordinate_commitments(&self,ctx: &mut Context, msg: &SignMessage, signing_key: &VaultKeypair, stored_remote_commitments: &BTreeMap<Index, BTreeMap<Identifier, round1::SigningCommitments>>) {
 
         let coordinator = select_coordinator(&signing_key.pub_key.verifying_shares().keys().collect::<Vec<_>>(), msg.create_time);
+        debug!("coordinator: {}/{:?}", msg.task_id, coordinator);
         if ctx.identifier != coordinator {
             return
         }
@@ -226,6 +227,7 @@ impl<H> StandardSigner<H> where H: SignAdaptor{
             None => return
         };
 
+        debug!("received commitment: {:?}", signing_commitments.len());
         // Only check the first one, because all inputs are in the same package
         if signing_commitments.len() != *signing_key.priv_key.min_signers() as usize {
             return
