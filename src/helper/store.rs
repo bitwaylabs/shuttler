@@ -41,9 +41,13 @@ impl<K, V> Store<K, V> for SledStore<K, V> where K: AsRef<[u8]>, V: Serialize + 
                 return false;
             }
         };
-        self.inner
-            .insert(key, value)
-            .is_ok()
+        match self.inner.insert(key, value) {
+            Ok(_) => true,
+            Err(e) => {
+                tracing::error!("Save package error(out of space),: {:?}", e);
+                false
+            },
+        }
     }
 
     fn list(&self) -> Vec<V> {
