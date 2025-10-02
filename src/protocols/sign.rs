@@ -165,12 +165,10 @@ impl<H> StandardSigner<H> where H: SignAdaptor{
             }
         }
 
-        let task_id = &msg.task_id.clone();
-
         match &msg.package {
             SignPackage::Commitment(commitments) => {
 
-                let mut remote_commitments = ctx.commitment_store.get(&task_id).unwrap_or(BTreeMap::new());
+                let mut remote_commitments = ctx.commitment_store.get(&msg.task_id).unwrap_or(BTreeMap::new());
 
                 // merge received package
                 commitments.iter().for_each(|(index, incoming)| {
@@ -184,17 +182,17 @@ impl<H> StandardSigner<H> where H: SignAdaptor{
                     }
                 });
 
-                ctx.commitment_store.save(&task_id, &remote_commitments);
+                ctx.commitment_store.save(&msg.task_id, &remote_commitments);
 
-                self.coordinate_commitments(ctx, &task_id, &msg, &signing_key, &remote_commitments);
+                self.coordinate_commitments(ctx, &msg, &signing_key, &remote_commitments);
 
             },
             SignPackage::Commitments(commitments) => {
-                self.generate_signature_shares(ctx, task_id, &msg, &signing_key, commitments);
+                self.generate_signature_shares(ctx,  &msg, &signing_key, commitments);
             },
             SignPackage::SignatureShare(sig_shares) => {
 
-                let mut remote_sig_shares = ctx.signature_store.get(&task_id).unwrap_or(BTreeMap::new());
+                let mut remote_sig_shares = ctx.signature_store.get(&msg.task_id).unwrap_or(BTreeMap::new());
 
                 // Merge all signature shares
                 sig_shares.iter().for_each(|(index, incoming)| {
@@ -208,15 +206,15 @@ impl<H> StandardSigner<H> where H: SignAdaptor{
                     }
                 });
 
-                ctx.signature_store.save(&task_id, &remote_sig_shares);
+                ctx.signature_store.save(&msg.task_id, &remote_sig_shares);
 
-                self.try_aggregate_signature_shares(ctx, &task_id, &signing_key, &remote_sig_shares);
+                self.try_aggregate_signature_shares(ctx, &msg.task_id, &signing_key, &remote_sig_shares);
                 
             }
         }
     }
 
-    fn coordinate_commitments(&self,ctx: &mut Context, task_id: &String, msg: &SignMessage, signing_key: &VaultKeypair, stored_remote_commitments: &BTreeMap<Index, BTreeMap<Identifier, round1::SigningCommitments>>) {
+    fn coordinate_commitments(&self,ctx: &mut Context, msg: &SignMessage, signing_key: &VaultKeypair, stored_remote_commitments: &BTreeMap<Index, BTreeMap<Identifier, round1::SigningCommitments>>) {
 
         let coordinator = select_coordinator(&signing_key.pub_key.verifying_shares().keys().collect::<Vec<_>>(), msg.create_time);
         if ctx.identifier != coordinator {
@@ -234,7 +232,7 @@ impl<H> StandardSigner<H> where H: SignAdaptor{
         }
 
         let mut msg = SignMessage {
-            task_id: task_id.clone(),
+            task_id: msg.task_id.clone(),
             package: SignPackage::Commitments(stored_remote_commitments.to_owned()),
             sender: ctx.identifier.clone(),
             signature: vec![],
@@ -248,10 +246,10 @@ impl<H> StandardSigner<H> where H: SignAdaptor{
 
     }
 
-    fn generate_signature_shares(&self, ctx: &mut Context, task_id: &String, msg: &SignMessage, signing_key: &VaultKeypair, received_commitments: &BTreeMap<Index, BTreeMap<Identifier, round1::SigningCommitments>>) {
+    fn generate_signature_shares(&self, ctx: &mut Context, msg: &SignMessage, signing_key: &VaultKeypair, received_commitments: &BTreeMap<Index, BTreeMap<Identifier, round1::SigningCommitments>>) {
 
         // Ensure the task exists locally to prevent forged signature tasks. 
-        let task = match ctx.task_store.get(task_id) {
+        let task = match ctx.task_store.get(&msg.task_id) {
             Some(t) => t,
             None => return,
         };
