@@ -459,7 +459,7 @@ impl<'a> Shuttler<'a> {
         }
         
         if let Some(lending) = self.apps.iter().find(|a| a.name() == APP_NAME_LENDING) {
-            metrics::counter!("signing-retry", "module" => "lending").increment(tasks.len() as u64);
+            metrics::counter!("signing_retry", "module" => "lending").increment(tasks.len() as u64);
             let _ = lending.execute(ctx, tasks);
         };
 
@@ -497,7 +497,7 @@ impl<'a> Shuttler<'a> {
         }
         
         if let Some(app) = self.apps.iter().find(|a| a.name() == APP_NAME_BRIDGE) {
-            metrics::counter!("signing-retry", "module" => "bridge").increment(tasks.len() as u64);
+            metrics::counter!("signing_retry", "module" => "bridge").increment(tasks.len() as u64);
             let _ = app.execute(ctx, tasks);
         };
 
