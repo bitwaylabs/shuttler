@@ -12,8 +12,6 @@ use tracing::info;
 
 use crate::apps::{Context, Input, SignMode, Task};
 use crate::helper::encoding::from_base64;
-use crate::helper::mem_store;
-use crate::helper::store::Store;
 
 use super::merkle_proof;
 
@@ -39,13 +37,6 @@ pub fn new_task_from_psbt(ctx: &Context, psbt_base64: &String, sign_mode: SignMo
         let script = input.witness_utxo.clone().unwrap().script_pubkey;
         let address = Address::from_script(&script, ctx.conf.bitcoin.network)?.to_string();
 
-        // check if there are sufficient participants for this tasks
-        let participants = mem_store::count_task_participants(ctx, &address.to_string());
-        match ctx.keystore.get(&address) {
-            Some(k) => if participants.len() < k.priv_key.min_signers().clone() as usize { return Err(anyhow!("insufficient signers")); },
-            None => continue,
-        };
-
         // get the message to sign
         let hash_ty = input
             .sighash_type
@@ -56,7 +47,6 @@ pub fn new_task_from_psbt(ctx: &Context, psbt_base64: &String, sign_mode: SignMo
         let input = Input {
             key: address,
             index: i,
-            participants,
             message: hash.to_raw_hash().to_byte_array().to_vec(),
             mode: sign_mode.clone(),
             signature: None,
@@ -70,7 +60,7 @@ pub fn new_task_from_psbt(ctx: &Context, psbt_base64: &String, sign_mode: SignMo
         return Err(anyhow!("invalid psbt, 0 input"));
     }
 
-    Ok(Task::new_signing(task_id.to_owned(), psbt_base64.clone(), inputs))
+    Ok(Task::new_signing(task_id.to_owned(), psbt_base64.clone(), inputs, 0))
 }
 
 pub fn schnorr_signature_from_frost(frost_signature: frost_adaptor_signature::Signature) -> bitcoin::secp256k1::schnorr::Signature {

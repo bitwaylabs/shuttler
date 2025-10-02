@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use tracing::{debug, info};
 pub use tracing::error;
 use usize as Index;
-use crate::{apps::{Context, FrostSignature, SideEvent, SignMode, Status, SubscribeMessage, Task, TaskInput}, config::VaultKeypair, 
+use crate::{apps::{Context, FrostSignature, SideEvent, SignMode, Status, SubscribeMessage, Task, TaskInput}, config::{VaultKeypair, TASK_INTERVAL}, 
     helper::{
         bitcoin::convert_tweak, gossip::publish_topic_message, mem_store, now, store::Store
 }};
@@ -21,14 +21,15 @@ pub struct SignMessage {
     pub package: SignPackage,
     pub sender: Identifier,
     pub signature: Vec<u8>,
-    #[serde(skip_deserializing)]
-    pub timestamp: u64,
+    pub key: String,
+    pub create_time: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SignPackage {
-    Round1(BTreeMap<Index,BTreeMap<Identifier,round1::SigningCommitments>>),
-    Round2(BTreeMap<Index,BTreeMap<Identifier,round2::SignatureShare>>),
+    Commitment(BTreeMap<Index,BTreeMap<Identifier,round1::SigningCommitments>>,),
+    Commitments(BTreeMap<Index, BTreeMap<Identifier, round1::SigningCommitments>>),
+    SignatureShare(BTreeMap<Index,BTreeMap<Identifier,round2::SignatureShare>>),
 }
 
 pub trait SignAdaptor {
@@ -83,16 +84,17 @@ impl<H> StandardSigner<H> where H: SignAdaptor{
         let mut commitments = BTreeMap::new();
         //let mut commitments = signer.get_signing_commitments(&task.id);
 
-        sign_inputs.iter().enumerate().for_each(|(index, input)| {
-            let mut rng = thread_rng();
-            let key = match ctx.keystore.get(&input.key) {
-                Some(k) => k,
-                None => {
-                    debug!("Signing key [{:?}] not found:", input.key);
-                    return
-                },
-            };
+        let signing_key = match sign_inputs.first() {
+            Some(i) => i.key.clone(),
+            None => return,
+        };
+        let key = match ctx.keystore.get(&signing_key) {
+            Some(k) => k,
+            None => return,
+        };
 
+        sign_inputs.iter().enumerate().for_each(|(index, _input)| {
+            let mut rng = thread_rng();
             let (nonce, commitment) = round1::commit(key.priv_key.signing_share(), &mut rng);
             nonces.insert(index, nonce);
             let mut input_commit = BTreeMap::new();
@@ -110,10 +112,11 @@ impl<H> StandardSigner<H> where H: SignAdaptor{
         // Publish commitments to other pariticipants
         let mut msg =  SignMessage {
             task_id: task.id.clone(),
-            package: SignPackage::Round1(commitments),
+            package: SignPackage::Commitment(commitments),
             sender: ctx.identifier.clone(),
             signature: vec![],
-            timestamp: now(),
+            key: signing_key,
+            create_time: task.time,
         };
 
         self.broadcast_signing_packages(ctx, &mut msg);
@@ -129,13 +132,21 @@ impl<H> StandardSigner<H> where H: SignAdaptor{
             let m = serde_json::from_slice(&message.data)?;
             self.received_sign_message(ctx, m);
         }
-        // if let Ok(m) =  H::message(message) {
-        //     self.received_dkg_message(ctx, m);
-        // }
         return Ok(())
     }
 
     fn received_sign_message(&self, ctx: &mut Context, msg: SignMessage) {
+
+        // check if I am one of participants
+        let signing_key = match ctx.keystore.get(&msg.key) {
+            Some(k) => k,
+            None => return,
+        };
+
+        // Check if the message from the expected participants.
+        if !signing_key.pub_key.verifying_shares().contains_key(&msg.sender) {
+            return
+        }
 
         // tracing:: debug!("Received: {:?}", msg);
         // Ensure the message is not forged.
@@ -154,19 +165,12 @@ impl<H> StandardSigner<H> where H: SignAdaptor{
             }
         }
 
-        let task_id = msg.task_id.clone();
-        let first = 0;
+        let task_id = &msg.task_id.clone();
 
-        match msg.package {
-            SignPackage::Round1(commitments) => {
+        match &msg.package {
+            SignPackage::Commitment(commitments) => {
 
                 let mut remote_commitments = ctx.commitment_store.get(&task_id).unwrap_or(BTreeMap::new());
-                // return if msg has received.
-                if let Some(exists) = remote_commitments.get(&first) {
-                    if exists.contains_key(&msg.sender) {
-                        return
-                    }
-                }
 
                 // merge received package
                 commitments.iter().for_each(|(index, incoming)| {
@@ -182,18 +186,15 @@ impl<H> StandardSigner<H> where H: SignAdaptor{
 
                 ctx.commitment_store.save(&task_id, &remote_commitments);
 
-                self.try_generate_signature_shares(ctx, &task_id, &msg.sender);
+                self.coordinate_commitments(ctx, &task_id, &msg, &signing_key, &remote_commitments);
 
             },
-            SignPackage::Round2(sig_shares) => {
+            SignPackage::Commitments(commitments) => {
+                self.generate_signature_shares(ctx, task_id, &msg, &signing_key, commitments);
+            },
+            SignPackage::SignatureShare(sig_shares) => {
 
                 let mut remote_sig_shares = ctx.signature_store.get(&task_id).unwrap_or(BTreeMap::new());
-                // return if msg has received.
-                if let Some(exists) = remote_sig_shares.get(&first) {
-                    if exists.contains_key(&msg.sender) {
-                        return
-                    }
-                }
 
                 // Merge all signature shares
                 sig_shares.iter().for_each(|(index, incoming)| {
@@ -209,13 +210,45 @@ impl<H> StandardSigner<H> where H: SignAdaptor{
 
                 ctx.signature_store.save(&task_id, &remote_sig_shares);
 
-                self.try_aggregate_signature_shares(ctx, &task_id, &msg.sender);
+                self.try_aggregate_signature_shares(ctx, &task_id, &signing_key, &remote_sig_shares);
                 
             }
         }
     }
 
-    fn try_generate_signature_shares(&self, ctx: &mut Context, task_id: &String, sender: &Identifier) {
+    fn coordinate_commitments(&self,ctx: &mut Context, task_id: &String, msg: &SignMessage, signing_key: &VaultKeypair, stored_remote_commitments: &BTreeMap<Index, BTreeMap<Identifier, round1::SigningCommitments>>) {
+
+        let coordinator = select_coordinator(&signing_key.pub_key.verifying_shares().keys().collect::<Vec<_>>(), msg.create_time);
+        if ctx.identifier != coordinator {
+            return
+        }
+
+        let signing_commitments = match stored_remote_commitments.get(&0) {
+            Some(e) => e,
+            None => return
+        };
+
+        // Only check the first one, because all inputs are in the same package
+        if signing_commitments.len() != *signing_key.priv_key.min_signers() as usize {
+            return
+        }
+
+        let mut msg = SignMessage {
+            task_id: task_id.clone(),
+            package: SignPackage::Commitments(stored_remote_commitments.to_owned()),
+            sender: ctx.identifier.clone(),
+            signature: vec![],
+            key: msg.key.clone(),
+            create_time: msg.create_time,
+        };
+
+        self.broadcast_signing_packages(ctx, &mut msg);
+
+        self.received_sign_message(ctx, msg);
+
+    }
+
+    fn generate_signature_shares(&self, ctx: &mut Context, task_id: &String, msg: &SignMessage, signing_key: &VaultKeypair, received_commitments: &BTreeMap<Index, BTreeMap<Identifier, round1::SigningCommitments>>) {
 
         // Ensure the task exists locally to prevent forged signature tasks. 
         let task = match ctx.task_store.get(task_id) {
@@ -233,99 +266,76 @@ impl<H> StandardSigner<H> where H: SignAdaptor{
             _ => return
         };
 
-        let stored_remote_commitments = ctx.commitment_store.get(&task.id).unwrap_or_default();
-
+        let min_signers = *signing_key.priv_key.min_signers() as usize;
         let mut broadcast_packages = BTreeMap::new();
+
         for (index, input) in sign_inputs.iter().enumerate() {
-            
-            // filter packets from unknown parties
-            if let Some(keypair) = ctx.keystore.get(&input.key) {
 
-                if !keypair.pub_key.verifying_shares().contains_key(sender) {
-                    error!("Sender {:?} not in keypair: {:?}", sender, input.key);
-                    return;
-                }
-            
-                if !keypair.pub_key.verifying_shares().contains_key(&ctx.identifier) {
-                    debug!("My identifier {:?} not in participants", ctx.identifier);
-                    ctx.clean_task_cache(task_id);
-                    return;
-                }
-
-                let mut signing_commitments = match stored_remote_commitments.get(&index) {
-                    Some(e) => e.clone(),
-                    None => return
-                };
-
-                sanitize( &mut signing_commitments, &keypair.pub_key.verifying_shares().keys().map(|k| k).collect::<Vec<_>>());
-
-                let received = signing_commitments.len();
-                if received < keypair.priv_key.min_signers().clone() as usize {
-                    return
-                }
-    
-                // Only check the first one, because all inputs are in the same package
-                if index == 0 {
-                    let participants = &input.participants;
-                
-                    debug!("Commitments {} {}/{}", &task.id, received, participants.len());
-
-                    if received != keypair.pub_key.verifying_shares().len() && received != participants.len() {
-                        return
-                    }
-                }
-                
-                let signing_package = SigningPackage::new(
-                    signing_commitments, 
-                    &input.message,
-                    );
-
-                let signer_nonces = match &input.mode {
-                    SignMode::SignWithGroupcommitment(gc) => {
-
-                        let key_b = match gc.serialize() {
-                            Ok(b) => b,
-                            Err(_) => return,
-                        };
-                        
-                        let nonce = match ctx.keystore.get(&key_b[1..].to_lower_hex_string()) {
-                            Some(t) => t,
-                            None => {
-                                error!("Group Commitment Not Found: {}", key_b.to_lower_hex_string());
-                                return;
-                            },
-                        };
-                
-                        let hiding = Nonce::from_scalar(nonce.priv_key.signing_share().to_scalar());
-                        let binding = Nonce::from_scalar(Secp256K1ScalarField::zero());
-                
-                        &SigningNonces::from_nonces(hiding, binding)
-                    }, 
-                    _ => {
-                        match stored_nonces.get(&index) {
-                            Some(d) => d,
-                            None => {
-                                debug!("not found local nonce for input {index}");
-                                return;
-                            },
-                        }
-                    }};
-
-                let signature_shares = match sign(&input.mode, &keypair, &signing_package, signer_nonces, ) {
-                    Ok(s) => s,
-                    Err(e) => {
-                        error!("Sign error: {}", e);
-                        return;
-                    },
-                };
-                
-                let mut my_share = BTreeMap::new();
-                my_share.insert(ctx.identifier.clone(), signature_shares);
-                
-                // broadcast my share
-                broadcast_packages.insert(index.clone(), my_share.clone());
-            
+            let signing_commitments = match received_commitments.get(&index) {
+                Some(e) => e.clone(),
+                None => return
             };
+
+            // I am not selected
+            if index == 0 && !signing_commitments.contains_key(&ctx.identifier) {
+                return
+            }
+
+            if signing_commitments.len() != min_signers {
+                tracing::error!("Received invalid commitment: {:?}", signing_commitments);
+                return
+            }
+            
+            let signing_package = SigningPackage::new(
+                signing_commitments, 
+                &input.message,
+            );
+
+            let signer_nonces = match &input.mode {
+                SignMode::SignWithGroupcommitment(gc) => {
+
+                    let key_b = match gc.serialize() {
+                        Ok(b) => b,
+                        Err(_) => return,
+                    };
+                    
+                    let nonce = match ctx.keystore.get(&key_b[1..].to_lower_hex_string()) {
+                        Some(t) => t,
+                        None => {
+                            error!("Group Commitment Not Found: {}", key_b.to_lower_hex_string());
+                            return;
+                        },
+                    };
+            
+                    let hiding = Nonce::from_scalar(nonce.priv_key.signing_share().to_scalar());
+                    let binding = Nonce::from_scalar(Secp256K1ScalarField::zero());
+            
+                    &SigningNonces::from_nonces(hiding, binding)
+                }, 
+                _ => {
+                    match stored_nonces.get(&index) {
+                        Some(d) => d,
+                        None => {
+                            debug!("not found local nonce for input {index}");
+                            return;
+                        },
+                    }
+                }};
+
+            let signature_shares = match sign(&input.mode, &signing_key, &signing_package, signer_nonces, ) {
+                Ok(s) => s,
+                Err(e) => {
+                    error!("Sign error: {}", e);
+                    return;
+                },
+            };
+            
+            let mut my_share = BTreeMap::new();
+            my_share.insert(ctx.identifier.clone(), signature_shares);
+            
+            // broadcast my share
+            broadcast_packages.insert(index.clone(), my_share.clone());
+        
         };
 
         if broadcast_packages.len() == 0 {
@@ -334,10 +344,11 @@ impl<H> StandardSigner<H> where H: SignAdaptor{
 
         let mut msg = SignMessage {
             task_id: task.id.clone(),
-            package: SignPackage::Round2(broadcast_packages),
+            package: SignPackage::SignatureShare(broadcast_packages),
             sender: ctx.identifier.clone(),
             signature: vec![],
-            timestamp: now(),
+            key: msg.key.clone(),
+            create_time: msg.create_time,
         };
 
         self.broadcast_signing_packages(ctx, &mut msg);
@@ -346,7 +357,7 @@ impl<H> StandardSigner<H> where H: SignAdaptor{
 
     }
 
-    fn try_aggregate_signature_shares(&self, ctx: &mut Context, task_id: &String, sender: &Identifier) {
+    fn try_aggregate_signature_shares(&self, ctx: &mut Context, task_id: &String, signing_key: &VaultKeypair, stored_remote_signature_shares: &BTreeMap<Index, BTreeMap<Identifier, round2::SignatureShare>>) {
 
         // Ensure the task exists locally to prevent forged signature tasks. 
         let mut task = match ctx.task_store.get(task_id) {
@@ -359,54 +370,32 @@ impl<H> StandardSigner<H> where H: SignAdaptor{
         }
 
         let stored_remote_commitments = ctx.commitment_store.get(&task.id).unwrap_or_default();
-        let stored_remote_signature_shares = ctx.signature_store.get(&task.id).unwrap_or_default();
         
         let mut verifies = vec![];
         let mut sign_inputs = match task.input.clone() {
             TaskInput::SIGN(i) => i,
             _ => return
         };
+
+        let threshold = signing_key.priv_key.min_signers().clone() as usize;
+
         for (index, input) in sign_inputs.iter_mut().enumerate() {
 
-            let keypair = match ctx.keystore.get(&input.key) {
-                Some(keypair) => keypair,
-                None => {
-                    error!("Failed to get keypair for address: {}", input.key);
-                    return;
-                }
-            };
-
-            if !keypair.pub_key.verifying_shares().contains_key(&ctx.identifier) {
-                debug!("My identifier {:?} not in participants.", &ctx.identifier);
-                ctx.clean_task_cache(task_id);
-                return;
-            }
-
-            if !keypair.pub_key.verifying_shares().contains_key(sender) {
-                error!("Sender {:?} not in keypair: {:?}", sender, input.key);
-                return;
-            }
-
-            let mut signature_shares = match stored_remote_signature_shares.get(&index) {
+            let signature_shares = match stored_remote_signature_shares.get(&index) {
                 Some(e) => e.clone(),
                 None => return
             };
+
+            if signature_shares.len() < threshold {
+                return
+            }
 
             let mut signing_commitments = match stored_remote_commitments.get(&index) {
                 Some(e) => e.clone(),
                 None => return
             };
-            
-            let threshold = keypair.priv_key.min_signers().clone() as usize;
 
-            if signature_shares.len() >= threshold {
-                signing_commitments.retain(|k, _| {input.participants.contains(k)});
-                signature_shares.retain(|k, _| {input.participants.contains(k)});
-            }
-
-            if signature_shares.len() < threshold || signature_shares.len() < signing_commitments.len() {
-                return
-            }
+            signing_commitments.retain(|k, _v| {signature_shares.contains_key(k)});
 
             if index == 0 {
                 debug!("Signature share {} {}/{}", &task_id, signature_shares.len(), signing_commitments.len() )
@@ -417,7 +406,7 @@ impl<H> StandardSigner<H> where H: SignAdaptor{
                 &input.message
             );
 
-            match aggregate(&signing_package, &signature_shares, &keypair, &input.mode) {
+            match aggregate(&signing_package, &signature_shares, &signing_key, &input.mode) {
                 Ok(s) => {
                     verifies.push(true);
                     input.signature = Some(s);
@@ -513,8 +502,9 @@ fn aggregate(signing_package: &SigningPackage, signature_shares: &BTreeMap<Ident
 
 }
 
-fn sanitize<T>(storages: &mut BTreeMap<Identifier, T>, keys: &Vec<&Identifier>) {
-    if keys.len() > 0 {
-        storages.retain(|k, _| { keys.contains(&k)});
-    }
+fn select_coordinator(all_participants: &Vec<&Identifier>, time: u64) -> Identifier {
+
+    let du = (now() - time / TASK_INTERVAL ) as usize % all_participants.len(); 
+    all_participants[du].clone()
+
 }

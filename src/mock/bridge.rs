@@ -36,10 +36,10 @@ pub fn bridge_task_queue() -> EventQueue {
 
 pub fn create_vault_event(env: MockEnv, height: Height) -> SideEvent {
     let mut creation = BTreeMap::new();
-    creation.insert("create_bridge_vault.id".to_owned(), vec![height.value().to_string()]);
-    creation.insert("create_bridge_vault.participants".to_owned(), vec![env.participants.join(",")]);
-    creation.insert("create_bridge_vault.batch_size".to_owned(), vec!["2".to_owned()]);
-    creation.insert("create_bridge_vault.threshold".to_owned(), vec![(env.participants.len() * 2 / 3).to_string()]);
+    creation.insert("initiate_dkg_bridge.id".to_owned(), vec![height.value().to_string()]);
+    creation.insert("initiate_dkg_bridge.participants".to_owned(), vec![env.participants.join(",")]);
+    creation.insert("initiate_dkg_bridge.batch_size".to_owned(), vec!["2".to_owned()]);
+    creation.insert("initiate_dkg_bridge.threshold".to_owned(), vec![(env.participants.len() * 2 / 3).to_string()]);
 
     println!("send vault event: {:?}", creation);
 

@@ -109,7 +109,7 @@ impl<H> DKG<H> where H: DKGAdaptor {
             _ => return
         };
 
-        if !dkg_input.participants.contains(&ctx.identifier){
+        if !task.participants.contains(&ctx.identifier){
             return;
         }
 
@@ -121,7 +121,7 @@ impl<H> DKG<H> where H: DKGAdaptor {
         for _i in 0..dkg_input.batch_size {
             if let Ok((secret_packet, round1_package)) = frost::keys::dkg::part1(
                 ctx.identifier.clone(),
-                dkg_input.participants.len() as u16,
+                task.participants.len() as u16,
                 dkg_input.threshold,
                 &mut rng,
             ) {
@@ -167,16 +167,11 @@ impl<H> DKG<H> where H: DKGAdaptor {
             }
         };
 
-        let dkg_input = match &task.input {
-            TaskInput::DKG(i) => i,
-            _ => return Err(DKGError("unmatched input".to_string()))
-        };
-
-        if dkg_input.participants.contains(&ctx.identifier) == false {
+        if task.participants.contains(&ctx.identifier) == false {
             return Err(DKGError(format!("not in participants of {}", task_id)));
         }
 
-        if dkg_input.participants.len() as u16 != round1_packages.len() as u16 {
+        if task.participants.len() as u16 != round1_packages.len() as u16 {
             return Err(DKGError(format!("Have not received enough packages: {}", task_id)));
         }
 
@@ -290,16 +285,12 @@ impl<H> DKG<H> where H: DKGAdaptor {
                 return
             },
             Some(mut task) => {
-                let dkg_input = match &task.input {
-                    TaskInput::DKG(i) => i,
-                    _ => return
-                };
 
-                if !dkg_input.participants.contains(&packets.sender) {
+                if !task.participants.contains(&packets.sender) {
                     return;
                 }
 
-                if !dkg_input.participants.contains(&ctx.identifier) {
+                if !task.participants.contains(&ctx.identifier) {
                     ctx.clean_dkg_cache(&task_id);
                     debug!("Received round1 package from {:?} but not a participant in task: {}", mem_store::get_moniker(&packets.sender), task_id);
                     return;
@@ -307,10 +298,10 @@ impl<H> DKG<H> where H: DKGAdaptor {
                     debug!("Received round1 packets: {} {:?}", &task_id, received.keys().map(|k| mem_store::get_participant_moniker(k)).collect::<Vec<_>>());
                 }
 
-                received.retain(|id, _| dkg_input.participants.contains(id));
+                received.retain(|id, _| task.participants.contains(id));
                 ctx.db_round1.save(&task_id, &received);
                 
-                if dkg_input.participants.len() == received.len() {
+                if task.participants.len() == received.len() {
             
                     info!("#{} round1 completed", task_id);
                     match self.generate_round2_packages(ctx,  &task, received) {
@@ -365,22 +356,22 @@ impl<H> DKG<H> where H: DKGAdaptor {
                     _ => return
                 };
 
-                if !dkg_input.participants.contains(&packets.sender) {
+                if !task.participants.contains(&packets.sender) {
                     return;
                 }
 
-                if !dkg_input.participants.contains(&ctx.identifier) {
+                if !task.participants.contains(&ctx.identifier) {
                     ctx.clean_dkg_cache(&task_id);
                     debug!("Received round1 package from {:?} but not a participant in task: {}",mem_store::get_moniker(&packets.sender), task_id);
                     return;
                 } else {
                     debug!("Received round2 packets: {} {:?}", task_id, received.keys().map(|k| mem_store::get_participant_moniker(k)).collect::<Vec<_>>()); 
                 }
-                received.retain(|id, _| dkg_input.participants.contains(id));
+                received.retain(|id, _| task.participants.contains(id));
 
                 ctx.db_round2.save(&task_id, &received);
 
-                if dkg_input.participants.len() == received.len() + 1 {
+                if task.participants.len() == received.len() + 1 {
                     // info!("Received round2 packets from all participants: {}", task.id);
 
                     // initialize a batch of empty BTreeMap.

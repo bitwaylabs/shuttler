@@ -164,6 +164,9 @@ impl DKGAdaptor for KeygenHander {
 pub struct SignerHandler{}
 impl SignAdaptor for SignerHandler {
     fn new_task(&self, ctx: &mut Context, event: &SideEvent) -> Option<Vec<Task>> {
+
+        println!("new event: {:?}", event);
+        
         match event {
             SideEvent::BlockEvent( events) => {
                 if events.contains_key("initiate_signing.id") {
@@ -189,20 +192,17 @@ impl SignAdaptor for SignerHandler {
                                 sign_mode = SignMode::SignWithTweak
                             };
     
-                            if let Some(sign_key) = ctx.keystore.get(pub_key) {
-                                let participants = mem_store::count_task_participants(ctx, pub_key);
-                                if participants.len() >= sign_key.priv_key.min_signers().clone() as usize {
-                                    let mut sign_inputs = vec![];
-                                    sig_hashes.split(",").enumerate().for_each(|(index, sig)| {
-                                        if let Ok(message) = from_base64(sig) {
-                                                sign_inputs.insert(index, Input::new_with_message_mode(pub_key.clone(), message, participants.clone(), sign_mode.clone()));
-                                            }
+                            if ctx.keystore.exists(pub_key) {
+                                let mut sign_inputs = vec![];
+                                sig_hashes.split(",").enumerate().for_each(|(index, sig)| {
+                                    if let Ok(message) = from_base64(sig) {
+                                            sign_inputs.insert(index, Input::new_with_message_mode(pub_key.clone(), message, sign_mode.clone()));
                                         }
-                                    );
-                                    if sign_inputs.len() > 0 {
-                                        let task= Task::new_signing(format!("{}{}", TASK_PREFIX_SIGN, id), "" , sign_inputs);
-                                        tasks.push(task);
                                     }
+                                );
+                                if sign_inputs.len() > 0 {
+                                    let task= Task::new_signing(format!("{}{}", TASK_PREFIX_SIGN, id), "" , sign_inputs, 0);
+                                    tasks.push(task);
                                 }
                             }
                         };
@@ -231,20 +231,17 @@ impl SignAdaptor for SignerHandler {
                         }
                     };
 
-                    if let Some(sign_key) = ctx.keystore.get(&pub_key) {
-                        let participants = mem_store::count_task_participants(ctx, &pub_key);
-                        if participants.len() >= sign_key.priv_key.min_signers().clone() as usize {
-                            let mut sign_inputs = vec![];
-                            sig_hashes.split(",").enumerate().for_each(|(index, sig)| {
-                                if let Ok(message) = from_base64(sig) {
-                                        sign_inputs.insert(index, Input::new_with_message_mode(pub_key.clone(), message, participants.clone(), sign_mode.clone()));
-                                    }
+                    if ctx.keystore.exists(&pub_key) {
+                        let mut sign_inputs = vec![];
+                        sig_hashes.split(",").enumerate().for_each(|(index, sig)| {
+                            if let Ok(message) = from_base64(sig) {
+                                    sign_inputs.insert(index, Input::new_with_message_mode(pub_key.clone(), message, sign_mode.clone()));
                                 }
-                            );
-                            if sign_inputs.len() > 0 {
-                                let task= Task::new_signing(format!("{}{}", TASK_PREFIX_SIGN, id), "" , sign_inputs);
-                                tasks.push(task);
                             }
+                        );
+                        if sign_inputs.len() > 0 {
+                            let task= Task::new_signing(format!("{}{}", TASK_PREFIX_SIGN, id), "" , sign_inputs, 0);
+                            tasks.push(task);
                         }
                     }
                 }
@@ -333,7 +330,7 @@ impl RefreshAdaptor for RefreshHandler {
                                 remove_participants: removed_ids,
                                 new_participants: participants,
                             };
-                            tasks.push(Task::new_with_input(task_id, TaskInput::REFRESH(input), ""));
+                            tasks.push(Task::new_with_input(task_id, TaskInput::REFRESH(input), "", 0, vec![]));
                         };
                     return Some(tasks);
                 } else if events.contains_key("refreshing_completed.id") {

@@ -57,11 +57,11 @@ pub fn generate_event_queue(module: &String) -> EventQueue {
 fn handle_tx_submissions(home: &str, tx_num: u32, tx_bytes: &Vec<u8>) {
     if let Ok(tx) = Tx::from_bytes(tx_bytes) {
         tx.body.messages.iter().for_each(|m| {
-            if m.type_url == "/side.btcbridge.MsgCompleteDKG" {
+            if m.type_url == "/bitway.btcbridge.MsgCompleteDKG" {
                 handle_bridge_dkg_submission(home, tx_num, m);
-            } else if m.type_url == "/side.tss.MsgCompleteDKG" {
+            } else if m.type_url == "/bitway.tss.MsgCompleteDKG" {
                 handle_lending_dkg_submission(home, m);
-            } else if m.type_url == "/side.tss.MsgSubmitSignatures" {
+            } else if m.type_url == "/bitway.tss.MsgSubmitSignatures" {
                 handle_signature_submission(home, m);
             } else {
                 println!("Received msg: {}", m.type_url);

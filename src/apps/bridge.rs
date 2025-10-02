@@ -205,16 +205,13 @@ impl SignAdaptor for SignatureHandler {
     
                             let mut inputs = vec![];
                             s.split(",").zip(h.split(",")).for_each(|(signer, sig_hash)| {
-                                if let Some(sign_key) = ctx.keystore.get(&signer.to_string()) {
-                                    let participants = mem_store::count_task_participants(ctx, &signer.to_string());
-                                    if participants.len() >= sign_key.priv_key.min_signers().clone() as usize {
-                                        let input = Input::new_with_message_mode(signer.to_string(), from_base64(sig_hash).unwrap(), participants, SignMode::SignWithTweak);
-                                        inputs.push(input);
-                                    }
+                                if ctx.keystore.exists(&signer.to_string()) {
+                                    let input = Input::new_with_message_mode(signer.to_string(), from_base64(sig_hash).unwrap(), SignMode::SignWithTweak);
+                                    inputs.push(input);
                                 }
                             });
                             if inputs.len() > 0 {
-                                tasks.push( Task::new_signing(id.to_string(), "", inputs));
+                                tasks.push( Task::new_signing(id.to_string(), "", inputs, 0));
                             }
                         };
                     return Some(tasks);
@@ -232,13 +229,13 @@ impl SignAdaptor for SignatureHandler {
                         if let Some(sign_key) = ctx.keystore.get(&signer.to_string()) {
                             let participants = mem_store::count_task_participants(ctx, &signer.to_string());
                             if participants.len() >= sign_key.priv_key.min_signers().clone() as usize {
-                                let input = Input::new_with_message_mode(signer.to_string(), from_base64(sig_hash).unwrap(), participants, SignMode::SignWithTweak);
+                                let input = Input::new_with_message_mode(signer.to_string(), from_base64(sig_hash).unwrap(), SignMode::SignWithTweak);
                                 inputs.push(input);
                             }
                         }
                     });
                     if inputs.len() > 0 {
-                        tasks.push( Task::new_signing(id.to_string(), "", inputs));
+                        tasks.push( Task::new_signing(id.to_string(), "", inputs, 0));
                     }
                 }
                 return Some(tasks);
@@ -328,7 +325,7 @@ impl RefreshAdaptor for RefreshHandler {
                                 remove_participants: removed_ids,
                                 new_participants: participants,
                             };
-                            tasks.push(Task::new_with_input(task_id, TaskInput::REFRESH(input), vault_addrs.join(",")));
+                            tasks.push(Task::new_with_input(task_id, TaskInput::REFRESH(input), vault_addrs.join(","), 0, vec![]));
                         };
                     return Some(tasks);
                 } else if events.contains_key("refreshing_completed_bridge.id") {

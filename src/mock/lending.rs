@@ -46,7 +46,7 @@ pub fn handle_lending_dkg_submission(home: &str, m: &Any) {
 
 pub fn handle_signature_submission(_home: &str, m: &Any) {
     if let Ok(msg) = m.to_msg::<MsgSubmitSignatures>() {
-        println!("Received: {:?}", msg);
+        println!("Received Signature: {:?}", msg);
     }
 }
 

@@ -13,7 +13,6 @@ use crate::{
     config::{Config, VaultKeypair},
     helper::{
         encoding::to_base64,
-        now,
         store::{DefaultStore, Store},
     }, protocols::refresh::RefreshInput,
 };
@@ -101,7 +100,6 @@ impl FrostSignature {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Input {
     pub key: String,
-    pub participants: Vec<Identifier>,
     pub index: usize,
     pub mode: SignMode,
     pub message: Vec<u8>,
@@ -112,7 +110,6 @@ impl Input {
     pub fn new(sign_key: String) -> Self {
         Self {
             index: 0,
-            participants: vec![],
             key: sign_key,
             mode: SignMode::Sign,
             message: vec![],
@@ -123,20 +120,17 @@ impl Input {
     pub fn new_with_message(
         sign_key: String,
         message: Vec<u8>,
-        participants: Vec<Identifier>,
     ) -> Self {
-        Self::new_with_message_mode(sign_key, message, participants, SignMode::SignWithTweak)
+        Self::new_with_message_mode(sign_key, message, SignMode::SignWithTweak)
     }
 
     pub fn new_with_message_mode(
         sign_key: String,
         message: Vec<u8>,
-        participants: Vec<Identifier>,
         mode: SignMode,
     ) -> Self {
         Self {
             index: 0,
-            participants,
             key: sign_key,
             mode,
             message,
@@ -147,7 +141,6 @@ impl Input {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct DkgInput {
-    pub participants: Vec<Identifier>,
     pub threshold: u16,
     pub tweaks: Vec<i32>,
     pub batch_size: usize,
@@ -166,6 +159,7 @@ pub struct Task {
     pub id: String,
     pub status: Status,
     pub time: u64,
+    pub participants: Vec<Identifier>,
     pub input: TaskInput,
     pub memo: String, // store psbt for later use
     pub submitted: bool,
@@ -182,37 +176,33 @@ impl Task {
 
     pub fn new_dkg_with_args(id: String, participants: Vec<Identifier>, threshold: u16, tweaks: Vec<i32>, batch_size: usize) -> Self {
         Self::new_with_input(id, TaskInput::DKG(DkgInput {
-            participants,
             threshold,
             tweaks,
             batch_size,
-        }), "".to_owned())
+        }), "".to_owned(), 0, participants)
     }
 
     pub fn new_signing(
         id: String,
         memo: impl Into<String>,
         sign_inputs: Vec<Input>,
+        create_time: u64,
     ) -> Self {
-        Self::new_with_input(id, TaskInput::SIGN(sign_inputs), memo)
+        Self::new_with_input(id, TaskInput::SIGN(sign_inputs), memo, create_time, vec![])
     }
 
-    pub fn new_with_input(id: String, input: TaskInput, memo: impl Into<String>) -> Self {
-        Self { id, status: Status::Round1, time: now(), input, memo: memo.into(), submitted: false }
+    pub fn new_with_input(id: String, input: TaskInput, memo: impl Into<String>, create_time: u64, participants: Vec<Identifier>) -> Self {
+        Self { id, status: Status::Round1, time: create_time, input, memo: memo.into(), submitted: false, participants }
     }
     
 }
 type Index = usize;
-type CommitmentStore =
-    DefaultStore<String, BTreeMap<Index, BTreeMap<Identifier, round1::SigningCommitments>>>;
-type SignatureShareStore =
-    DefaultStore<String, BTreeMap<Index, BTreeMap<Identifier, round2::SignatureShare>>>;
+type CommitmentStore = DefaultStore<String, BTreeMap<Index, BTreeMap<Identifier, round1::SigningCommitments>>>;
+type SignatureShareStore = DefaultStore<String, BTreeMap<Index, BTreeMap<Identifier, round2::SignatureShare>>>;
 type SignerNonceStore = DefaultStore<String, BTreeMap<Index, round1::SigningNonces>>;
 
-pub type Round1Store =
-    DefaultStore<String, BTreeMap<Identifier, Vec<frost_adaptor_signature::keys::dkg::round1::Package>>>;
+pub type Round1Store = DefaultStore<String, BTreeMap<Identifier, Vec<frost_adaptor_signature::keys::dkg::round1::Package>>>;
 pub type Round2Store = DefaultStore<String, BTreeMap<Identifier, Vec<Vec<u8>>>>;
-
 
 pub type Round1SecretStore = DefaultStore<String, Vec<frost_adaptor_signature::keys::dkg::round1::SecretPackage>>;
 pub type Round2SecretStore = DefaultStore<String, Vec<frost_adaptor_signature::keys::dkg::round2::SecretPackage>>;

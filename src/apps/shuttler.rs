@@ -409,15 +409,15 @@ impl<'a> Shuttler<'a> {
         if let Ok(x) = client_bitway::get_tss_signing_requests(&ctx.conf.bitway.grpc).await {
             debug!("fetch incompleted tss signing tasks: {:?}", x.get_ref().requests.iter().map(|r| r.id).collect::<Vec<_>>());
             x.into_inner().requests.iter().for_each(|r| {
+                let create_time = match r.creation_time {
+                    Some(t) => t.seconds as u64,
+                    None => return,
+                };
                 if ctx.task_store.exists(&format!("{}{}", TASK_PREFIX_SIGN, r.id)) {
-                    if let Some(create_time) = r.creation_time {
-                        let create_time = create_time.seconds as u64;
-                        if (crate::helper::now() - create_time) / TASK_INTERVAL % 2 == 1 {
-                            ctx.clean_task_cache(&format!("{}{}", TASK_PREFIX_SIGN, r.id));
-                            return
-                        }
+                    if (crate::helper::now() - create_time) / TASK_INTERVAL % 2 == 1 {
+                        ctx.clean_task_cache(&format!("{}{}", TASK_PREFIX_SIGN, r.id));
+                        return
                     }
-                    return
                 } else {
                     let mut sign_mode = SignMode::Sign;
                     match r.r#type() {
@@ -442,10 +442,7 @@ impl<'a> Shuttler<'a> {
                     let mut inputs = vec![];
                     r.sig_hashes.iter().for_each(|s| {
                         if let Ok(message) = from_base64(s) {
-                            let participants = mem_store::count_task_participants(ctx, &r.pub_key);
-                            if participants.len() > 0 {
-                                inputs.push(Input::new_with_message_mode( r.pub_key.clone(), message, participants, sign_mode.clone() ))
-                            }
+                            inputs.push(Input::new_with_message_mode( r.pub_key.clone(), message, sign_mode.clone() ))
                         }
                     });
                     if inputs.len() > 0 {
@@ -453,6 +450,7 @@ impl<'a> Shuttler<'a> {
                             format!("{}{}", TASK_PREFIX_SIGN, r.id),
                             "",
                             inputs,
+                            create_time,
                         );
                         tasks.push(task);
                     }
@@ -473,27 +471,24 @@ impl<'a> Shuttler<'a> {
         if let Ok(x) = client_bitway::get_bridge_pending_signing_requests(&ctx.conf.bitway.grpc).await {
             debug!("fetch incompleted bridge signing tasks: {:?}", x.get_ref().requests.iter().map(|r| r.txid.clone()).collect::<Vec<_>>());
             x.into_inner().requests.iter().for_each(|r| {
+                let create_time = match r.creation_time {
+                    Some(t) => t.seconds as u64,
+                    None => return,
+                };
                 if ctx.task_store.exists(&r.txid) {
-                    if let Some(create_time) = r.creation_time {
-                        let create_time = create_time.seconds as u64;
-                        if (crate::helper::now() - create_time) / TASK_INTERVAL % 2 == 1 {
-                            ctx.clean_task_cache(&r.txid);
-                            return
-                        }
+                    if (crate::helper::now() - create_time) / TASK_INTERVAL % 2 == 1 {
+                        ctx.clean_task_cache(&r.txid);
+                        return
                     }
-                    return
                 } else {
                     let mut inputs = vec![];
                     r.signers.iter().zip(r.sig_hashes.iter()).for_each(|(s, m)| {
-                        let participants = mem_store::count_task_participants(ctx, s);
-                        if participants.len() > 0 {
-                            if let Ok(message) = from_base64(m) {
-                                inputs.push( Input::new_with_message_mode(s.to_string(), message, participants.clone(), SignMode::SignWithTweak));
-                            }
+                        if let Ok(message) = from_base64(m) {
+                            inputs.push( Input::new_with_message_mode(s.to_string(), message, SignMode::SignWithTweak));
                         }
                     });
                     if inputs.len() > 0 {
-                        let task = Task::new_signing( r.txid.clone(), "", inputs);
+                        let task = Task::new_signing( r.txid.clone(), "", inputs, create_time);
                         tasks.push(task);
                     }
                 };
