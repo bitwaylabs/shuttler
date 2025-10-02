@@ -198,6 +198,11 @@ impl<H> StandardSigner<H> where H: SignAdaptor{
 
             },
             SignPackage::Snapshot(commitments) => {
+                let coordinator = select_coordinator(&signing_key.pub_key.verifying_shares().keys().collect::<Vec<_>>(), msg.create_time);
+                if msg.sender != coordinator {
+                    error!("Received commitment snapshot from {:?}, but expected from {:?} ", mem_store::get_moniker(&msg.sender), mem_store::get_moniker(&coordinator));
+                    return
+                }
                 self.generate_signature_shares(ctx,  &msg, &signing_key, commitments);
             },
             SignPackage::SignatureShare(sig_shares) => {
