@@ -5,6 +5,7 @@ use std::sync::{
 
 use bitcoin::{consensus::encode, Address, Block, BlockHash, OutPoint, Psbt, Transaction, Txid};
 use bitcoincore_rpc::RpcApi;
+use chrono::Timelike;
 use tokio::join;
 use tokio::time::{sleep, Duration};
 use tonic::{Response, Status};
@@ -112,6 +113,12 @@ pub async fn sync_signed_transactions(relayer: &Relayer) {
                 Ok(r) => {
                     if let Some(sr) = r.into_inner().request {
                         if sr.status == SigningStatus::Unspecified as i32 {
+                            if chrono::Utc::now().minute() == 0 {
+                                sleep(Duration::from_secs(interval)).await;
+                                SEQUENCE.store(0, Ordering::Relaxed);
+                                break;    
+                            }
+
                             sleep(Duration::from_secs(interval)).await;
                             continue;
                         }
