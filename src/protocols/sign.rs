@@ -335,7 +335,7 @@ impl<H> StandardSigner<H> where H: SignAdaptor{
                     }
                 }};
 
-            let signature_shares = match sign(&input.mode, &signing_key, &signing_package, signer_nonces, ) {
+            let signature_shares = match sign(&input.mode, &signing_key, &signing_package, signer_nonces) {
                 Ok(s) => s,
                 Err(e) => {
                     error!("Sign error: {}", e);
@@ -517,7 +517,7 @@ fn aggregate(signing_package: &SigningPackage, signature_shares: &BTreeMap<Ident
 
 fn select_coordinator(all_participants: &Vec<&Identifier>, time: u64) -> Identifier {
 
-    let du = (now() - time / TASK_INTERVAL ) as usize % all_participants.len(); 
+    let du = ((now() - time) / TASK_INTERVAL) as usize % all_participants.len(); 
     all_participants[du].clone()
 
 }
