@@ -259,6 +259,12 @@ impl<'a> Shuttler<'a> {
                     if self.apps.iter().any(|a| {a.name() == APP_NAME_BRIDGE}) {
                         self.handle_missed_bridge_signing_request(&mut context).await;
                     }
+                    if !mem_store::is_peer_alive(&identifier) {
+                        match client.reconnect().await {
+                            Ok(_) => tracing::info!("Websocket reconnected"),
+                            Err(e) => tracing::error!("Websocket error: {}", e),
+                        }
+                    }
                 }
                 swarm_event = context.swarm.select_next_some() => match swarm_event {
                     SwarmEvent::Behaviour(ShuttlerBehaviourEvent::Gossip(gossipsub::Event::Message{ message, propagation_source, .. })) => {
